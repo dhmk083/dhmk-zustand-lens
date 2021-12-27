@@ -1,0 +1,38 @@
+{
+  "name": "@dhmk/zustand-lens",
+  "version": "0.0.1",
+  "description": "Lens support for zustand",
+  "keywords": [
+    "zustand",
+    "middleware",
+    "lens"
+  ],
+  "license": "MIT",
+  "repository": "github:dhmk083/dhmk-zustand-lens",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "module": "esm/index.js",
+  "sideEffects": false,
+  "files": [
+    "lib",
+    "esm"
+  ],
+  "scripts": {
+    "preversion": "yarn test && yarn build",
+    "version": "git add -A",
+    "postversion": "git push && git push --tags",
+    "clean": "rm -rf lib esm",
+    "build": "yarn clean && tsc && tsc -m esnext --outDir esm",
+    "test": "true"
+  },
+  "peerDependencies": {
+    "zustand": "^3.6.7"
+  },
+  "devDependencies": {
+    "typescript": "^4.5.4",
+    "zustand": "^3.6.7"
+  },
+  "dependencies": {
+    "@dhmk/utils": "^2.4.0"
+  }
+}
