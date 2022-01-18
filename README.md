@@ -10,7 +10,7 @@ A quick comparison:
 
 ```ts
 import create from "zustand";
-import { lens } from "@dhmk/zutand-lens";
+import { lens } from "@dhmk/zustand-lens";
 
 create((set, get) => {
   // write and read whole state
@@ -33,7 +33,7 @@ npm install @dhmk/zustand-lens
 
 ```ts
 import { create } from 'zustand'
-import { withLenses, lens } from '@dhmk/zutand-lens'
+import { withLenses, lens } from '@dhmk/zustand-lens'
 
 // set, get - global
 const useStore = create(withLenses((set, get, api) => {
