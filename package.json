@@ -23,7 +23,7 @@
     "postversion": "git push && git push --tags",
     "clean": "rm -rf lib esm",
     "build": "yarn clean && tsc && tsc -m esnext --outDir esm",
-    "test": "jest"
+    "test": "yarn clean && jest"
   },
   "peerDependencies": {
     "zustand": "^3.6.7"
