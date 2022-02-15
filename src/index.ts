@@ -14,19 +14,36 @@ import {
   PropType,
 } from "@dhmk/utils";
 
-type SetState2<T> = T extends object ? SetState<T> : never;
-type GetState2<T> = T extends object ? GetState<T> : never;
+import type { Draft } from "immer";
+
+type ImmerSet<T> = (
+  partial: ((draft: Draft<T>) => void) | T,
+  replace?: boolean
+) => void;
+
+type SetState2<T> = (arg: T | ((prev: T) => T), replace?: boolean) => void;
+type GetState2<T> = () => T;
 
 export function createLens<T extends State, P extends string[]>(
-  set: SetState<T>,
-  get: GetState<T>,
+  set: SetState2<T>,
+  get: GetState2<T>,
   path: [...P]
 ): [SetState2<PropType<T, P>>, GetState2<PropType<T, P>>];
 export function createLens<T extends State, P extends string>(
-  set: SetState<T>,
-  get: GetState<T>,
+  set: SetState2<T>,
+  get: GetState2<T>,
   path: P
 ): [SetState2<PropType<T, [P]>>, GetState2<PropType<T, [P]>>];
+export function createLens<T extends State, P extends string[]>(
+  set: ImmerSet<T>,
+  get: GetState2<T>,
+  path: [...P]
+): [ImmerSet<PropType<T, P>>, GetState2<PropType<T, P>>];
+export function createLens<T extends State, P extends string>(
+  set: ImmerSet<T>,
+  get: GetState2<T>,
+  path: P
+): [ImmerSet<PropType<T, [P]>>, GetState2<PropType<T, [P]>>];
 export function createLens(set, get, path) {
   const normPath = typeof path === "string" ? [path] : path;
 
@@ -35,15 +52,15 @@ export function createLens(set, get, path) {
       const ourOldValue: any = getIn(parentValue, normPath);
       const ourTmpValue =
         typeof partial === "function" ? partial(ourOldValue) : partial;
-      const ourNextValue = replace
-        ? ourTmpValue
-        : { ...ourOldValue, ...ourTmpValue };
+      const isPlain = isPlainObject(ourOldValue);
+      const ourNextValue =
+        replace || !isPlain ? ourTmpValue : { ...ourOldValue, ...ourTmpValue };
 
-      const isObject = ourNextValue && typeof ourNextValue === "object";
+      const isSame = isPlain
+        ? shallowEqual(ourOldValue as any, ourNextValue)
+        : ourOldValue === ourNextValue; // todo Object.is
 
-      return isObject && shallowEqual(ourOldValue as any, ourNextValue)
-        ? parentValue
-        : setIn(parentValue, normPath, ourNextValue);
+      return isSame ? parentValue : setIn(parentValue, normPath, ourNextValue);
     });
 
   const _get = () => getIn(get(), normPath);
@@ -93,38 +110,20 @@ const findLensAndCreate = (x, set, get, path = [] as string[]) => {
   return res;
 };
 
-type WithLenses = {
-  <TState extends State>(
-    createState:
-      | StateCreator<
-          TState,
-          SetState<TState>,
-          GetState<TState>,
-          StoreApi<TState>
-        >
-      | StoreApi<TState>
-  ): typeof createState;
-
+export const withLenses =
   <
-    TState extends State,
-    CustomSetState,
-    CustomGetState,
-    CustomStoreApi extends StoreApi<TState>
+    T extends State,
+    CustomSetState = SetState<T>,
+    CustomGetState extends GetState<T> = GetState<T>,
+    CustomStoreApi extends StoreApi<T> = StoreApi<T>
   >(
-    createState: StateCreator<
-      TState,
-      CustomSetState,
-      CustomGetState,
-      CustomStoreApi
-    >
-  ): typeof createState;
-};
-
-export const withLenses: WithLenses = (config) => (set, get, api) => {
-  try {
-    canCreateLens = true;
-    return findLensAndCreate(config(set, get, api), set, get);
-  } finally {
-    canCreateLens = false;
-  }
-};
+    config: StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi>
+  ): StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi> =>
+  (set, get, api) => {
+    try {
+      canCreateLens = true;
+      return findLensAndCreate(config(set, get, api), set, get);
+    } finally {
+      canCreateLens = false;
+    }
+  };

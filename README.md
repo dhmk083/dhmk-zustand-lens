@@ -119,3 +119,110 @@ a: {
 }
 */
 ```
+
+## Typescript
+
+```ts
+type Store = {
+  id: number;
+  name: string;
+
+  nested: Nested;
+};
+
+type Nested = {
+  text: string;
+  isOk: boolean;
+
+  toggle();
+};
+
+// option 1: type whole store
+const store1 = create<Store>(
+  withLenses(() => ({
+    id: 123,
+    name: "test",
+
+    nested: lens((set) => ({
+      text: "test",
+      isOk: true,
+
+      toggle() {
+        set((p /* Nested */) => ({ isOk: !p.isOk }));
+      },
+    })),
+  }))
+);
+
+// option 2: type lens
+const store2 = create(
+  withLenses(() => ({
+    id: 123,
+    name: "test",
+
+    nested: lens<Nested>((set) => ({
+      text: "test",
+      isOk: true,
+
+      toggle() {
+        set((p /* Nested */) => ({ isOk: !p.isOk }));
+      },
+    })),
+  }))
+);
+```
+
+## Immer
+
+Immer is supported out-of-the-box. You just need to type the whole store. There is one caveat, however. Draft's type will be `T` and not `Draft<T>`. You can either add it yourself, or just don't use readonly properties in your type.
+
+```ts
+import produce, { Draft } from "immer";
+
+const immer =
+  <
+    T extends State,
+    CustomSetState extends SetState<T> = SetState<T>,
+    CustomGetState extends GetState<T> = GetState<T>,
+    CustomStoreApi extends StoreApi<T> = StoreApi<T>
+  >(
+    config: StateCreator<
+      T,
+      (partial: ((draft: Draft<T>) => void) | T, replace?: boolean) => void,
+      CustomGetState,
+      CustomStoreApi
+    >
+  ): StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi> =>
+  (set, get, api) =>
+    config(
+      (partial, replace) => {
+        const nextState =
+          typeof partial === "function"
+            ? produce(partial as (state: Draft<T>) => T)
+            : (partial as T);
+        return set(nextState, replace);
+      },
+      get,
+      api
+    );
+
+const store = create<Store>(
+  immer(
+    withLenses(() => ({
+      id: 123,
+      name: "test",
+
+      nested: lens((set) => ({
+        text: "test",
+        isOk: true,
+
+        toggle() {
+          set((p /* Nested */) => {
+            p.isOk = !p.isOk;
+          });
+        },
+      })),
+    }))
+  )
+);
+```
