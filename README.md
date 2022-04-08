@@ -26,7 +26,7 @@ create((set, get) => {
 ## Install
 
 ```
-npm install @dhmk/zustand-lens
+npm install @dhmk/zustand-lens@getters
 ```
 
 ## Usage
@@ -226,3 +226,37 @@ const store = create<Store>(
   )
 );
 ```
+
+## Getters support
+
+### `lens2(fn: (set, get) => T): T`
+
+### `createLens2(set, get, path: string | string[]): [set, get]`
+
+Example:
+
+```js
+const store = create(
+  withLenses(() => ({
+    sub: lens2((set, get) => ({
+      items: [1, 2],
+
+      get count() {
+        return get().items.length;
+      },
+
+      add(x) {
+        set({ items: get().items.concat(x) });
+      },
+    })),
+  }))
+);
+```
+
+There are caveats, however:
+
+- It may degrade performance. Here's a [benchmark][1]. It is especially daunting in Firefox.
+- It won't work with Immer.
+- It won't work with nested lenses (can be solved).
+
+[1]: https://perf.link/#eyJpZCI6Im52dmZidmRyZWt4IiwidGl0bGUiOiJPYmplY3QuYXNzaWduIHZzIGFzc2lnbjIiLCJiZWZvcmUiOiJjb25zdCBhID0ge1xuICBpZDogMTIzLFxuICBuYW1lOiAndGVzdCcsXG4gIGdldCBzaXplKCkgeyByZXR1cm4gMTIzIH1cbn1cblxuY29uc3QgYiA9IHtcbiAgaWQ6IDQ1NixcbiAgZmxhZzogdHJ1ZSxcbiAgZ2V0IGNvdW50KCkgeyByZXR1cm4gMTIzIH1cbn1cblxuZnVuY3Rpb24gYXNzaWduMih0YXJnZXQsIC4uLnJlc3QpIHtcbiAgZm9yIChjb25zdCBvYmogb2YgcmVzdCkge1xuICAgIG9iaiAmJlxuICAgICAgT2JqZWN0LmRlZmluZVByb3BlcnRpZXModGFyZ2V0LCBPYmplY3QuZ2V0T3duUHJvcGVydHlEZXNjcmlwdG9ycyhvYmopKTtcbiAgfVxuXG4gIHJldHVybiB0YXJnZXQ7XG59IiwidGVzdHMiOlt7Im5hbWUiOiJPYmplY3QuYXNzaWduIiwiY29kZSI6Ik9iamVjdC5hc3NpZ24oe30sIGEsIGIpIiwicnVucyI6WzEwMDAsMjMwMDAsMTA3MDAwLDk1MDAwLDEzNzAwMCwxMDAwLDgyMDAwLDEyMDAwMCw2NDAwMCwxMjgwMDAsNzQwMDAsNzQwMDAsNTUwMDAsNjEwMDAsNTcwMDAsODEwMDAsNjEwMDAsMTE3MDAwLDEyMDAwLDY5MDAwLDE1MzAwMCwxMDAwLDg0MDAwLDc0MDAwLDk5MDAwLDMwMDAwLDEzNzAwMCwyMjAwMCwxNTAwMCwzMDAwLDQ2MDAwLDYwMDAsMzUwMDAsMzMwMDAsMTA0MDAwLDcwMDAsOTkwMDAsMjUwMDAsMjIwMDAsNjgwMDAsNzAwMDAsMTEwMDAwLDE4MDAwLDEyMjAwMCw3MjAwMCw1MzAwMCwxMDAwLDE1NDAwMCwyNTAwMCw0MzAwMCw3NTAwMCwxMjAwMCw3NDAwMCwxMzIwMDAsNjgwMDAsMTAwMCwxMjEwMDAsMzIwMDAsMzgwMDAsMTU4MDAwLDEyMzAwMCwxNzAwMCwxMDMwMDAsMTMwMDAsNzQwMDAsMjAwMDAsMTAwMCw3NTAwMCwxMDEwMDAsODIwMDAsNzAwMCwxNDIwMDAsMTYwMDAwLDEwNTAwMCwxMDAwLDEwNDAwMCwxMDEwMDAsMTQxMDAwLDMwMDAwLDQwMDAwLDEwMDAsMjQwMDAsNTYwMDAsMjAwMCwxMDAwLDEwMDAsMzAwMDAsNTEwMDAsMTgwMDAsNjkwMDAsNDYwMDAsNjUwMDAsMTQ5MDAwLDU2MDAwLDEwMDAsMzcwMDAsMTEwMDAsNTAwMCwxMDAwLDEzMTAwMF0sIm9wcyI6NjA1NjB9LHsibmFtZSI6ImFzc2lnbjIiLCJjb2RlIjoiYXNzaWduMih7fSwgYSwgYikiLCJydW5zIjpbODAwMCwxMDAwLDQ2MDAwLDI4MDAwLDAsMzQwMDAsMjQwMDAsNDAwMCwyMjAwMCwxMjAwMCwyNjAwMCwxNDAwMCwxMDAwLDEwMDAsMjgwMDAsMTUwMDAsNDUwMDAsMTMwMDAsNDIwMDAsMTgwMDAsMTAwMCw5MDAwLDU5MDAwLDM5MDAwLDEwMDAsMTAwMCw0NTAwMCwxMDAwLDEwMDAsMjEwMDAsMzQwMDAsMTEwMDAsMjYwMDAsMTUwMDAsNjYwMDAsMTAwMCwxNjAwMCwyNzAwMCwxMDAwLDIwMDAsMTAwMCw0NzAwMCwxMzAwMCwxMTAwMCwyMzAwMCwyNzAwMCwxMDAwLDgwMDAsNDAwMDAsOTAwMCwzMTAwMCwxMDAwMCw0NTAwMCw1NzAwMCw1NzAwMCw0MTAwMCwxMDAwLDExMDAwLDUzMDAwLDQxMDAwLDQ2MDAwLDEwMDAsMTMwMDAsMTAwMCwxODAwMCw0ODAwMCwxMzAwMCwzNTAwMCwxNDAwMCwxOTAwMCwxMDAwLDE1MDAwLDY0MDAwLDE2MDAwLDQ0MDAwLDMwMDAsNDAwMCwyODAwMCw1NDAwMCwyNDAwMCw0MDAwLDE4MDAwLDMxMDAwLDQ0MDAwLDYwMDAsNTUwMDAsMjIwMDAsMTQwMDAsMTkwMDAsMzAwMCwxOTAwMCw2MDAwMCwyMjAwMCwxMDAwLDU2MDAwLDMzMDAwLDIwMDAsMTAwMCw3MDAwLDgwMDBdLCJvcHMiOjIxNzIwfV0sInVwZGF0ZWQiOiIyMDIyLTA0LTA4VDA2OjIzOjA5LjY3N1oifQ%3D%3D
