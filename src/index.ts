@@ -68,6 +68,42 @@ export function createLens(set, get, path) {
   return [_set, _get] as any;
 }
 
+// todo: move to utils
+function assign2(target, ...rest) {
+  for (const obj of rest) {
+    obj &&
+      Object.defineProperties(target, Object.getOwnPropertyDescriptors(obj));
+  }
+
+  return target;
+}
+
+export function createLens2(set, get, path) {
+  const normPath = typeof path === "string" ? [path] : path;
+
+  const _set = (partial, replace) =>
+    set((parentValue) => {
+      const ourOldValue: any = getIn(parentValue, normPath);
+      const ourTmpValue =
+        typeof partial === "function" ? partial(ourOldValue) : partial;
+      const isPlain = isPlainObject(ourOldValue);
+      const ourNextValue =
+        replace || !isPlain
+          ? ourTmpValue
+          : assign2({}, ourOldValue, ourTmpValue);
+
+      const isSame = isPlain
+        ? shallowEqual(ourOldValue as any, ourNextValue)
+        : ourOldValue === ourNextValue; // todo Object.is
+
+      return isSame ? parentValue : setIn(parentValue, normPath, ourNextValue);
+    });
+
+  const _get = () => getIn(get(), normPath);
+
+  return [_set, _get] as any;
+}
+
 const LENS_TAG = "@dhmk/LENS_TAG";
 
 const isLens = (x) => !!x && x[LENS_TAG];
@@ -90,6 +126,22 @@ export function lens<T extends State>(
   return self as any;
 }
 
+export function lens2<T extends State>(
+  fn: (set: SetState<T>, get: GetState<T>) => T
+): T {
+  if (!canCreateLens)
+    throw new Error(
+      "`lens` function has been called outside `withLenses` function."
+    );
+
+  const self = (set, get, path) => {
+    const [_set, _get]: any = createLens2(set, get, path);
+    return fn(_set, _get);
+  };
+  self[LENS_TAG] = true;
+  return self as any;
+}
+
 const findLensAndCreate = (x, set, get, path = [] as string[]) => {
   let res = x;
 
@@ -97,6 +149,13 @@ const findLensAndCreate = (x, set, get, path = [] as string[]) => {
     res = {};
 
     for (const k in x) {
+      const desc = Object.getOwnPropertyDescriptor(x, k)!;
+
+      if (desc.get) {
+        Object.defineProperty(res, k, desc);
+        continue;
+      }
+
       let v = x[k];
 
       if (isLens(v)) {

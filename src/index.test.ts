@@ -1,7 +1,7 @@
 import create from "zustand/vanilla";
 import { State, SetState, GetState, StoreApi, StateCreator } from "zustand";
 import produce, { isDraft, Draft } from "immer";
-import { createLens, lens, withLenses } from "./";
+import { createLens, lens, lens2, withLenses } from "./";
 
 const immer =
   <
@@ -156,5 +156,101 @@ describe("immer", () => {
     store.getState().subB.changeName();
     expect(store.getState()).not.toBe(s2);
     expect(store.getState().subB.name).toBe("changed");
+  });
+});
+
+describe("getters support", () => {
+  it("works", () => {
+    const store = create<any>(
+      withLenses(() => ({
+        sub: lens2<any>((set, get) => ({
+          items: [1, 2],
+
+          get count() {
+            return get().items.length;
+          },
+
+          add(x) {
+            set({ items: get().items.concat(x) });
+          },
+        })),
+      }))
+    );
+
+    expect(store.getState().sub.count).toBe(2);
+
+    store.getState().sub.add(3);
+    store.getState().sub.add(4);
+    expect(store.getState().sub.count).toBe(4);
+  });
+
+  it("doesn`t work with immer", () => {
+    const store = create<any>(
+      immer(
+        withLenses(() => ({
+          sub: lens2<any>((set, get) => ({
+            items: [1, 2],
+
+            get count() {
+              return get().items.length;
+            },
+
+            add(x) {
+              set((draft) => {
+                draft.items.push(x);
+              });
+            },
+          })),
+        }))
+      )
+    );
+
+    expect(store.getState().sub.count).toBe(2);
+
+    store.getState().sub.add(3);
+    store.getState().sub.add(4);
+    // NOTE: 2 is wrong here, actual value is 4.
+    // That's because immer evaluates all getters when produces a new state.
+    expect(store.getState().sub.count).toBe(2);
+  });
+
+  it("doesn`t work with nested lenses", () => {
+    const store = create<any>(
+      withLenses(() => ({
+        sub: lens2<any>((set, get) => ({
+          items: [1, 2],
+
+          get count() {
+            return get().items.length;
+          },
+
+          nested: lens((set) => ({
+            id: 123,
+
+            test() {
+              set({ id: 456 });
+            },
+          })),
+
+          add(x) {
+            set({ items: get().items.concat(x) });
+          },
+        })),
+      }))
+    );
+
+    expect(store.getState().sub.count).toBe(2);
+
+    store.getState().sub.add(3);
+    store.getState().sub.add(4);
+    expect(store.getState().sub.count).toBe(4);
+
+    store.getState().sub.nested.test();
+    store.getState().sub.add(5);
+    // NOTE: 4 is wrong here, actual value is 5.
+    // That's because both `lens` and `lens2` use `setIn` to produce a new state,
+    // and it evaluates all getters on update path.
+    // Although, this can be solved, but by sacrificing some performance.
+    expect(store.getState().sub.count).toBe(4);
   });
 });
