@@ -12,7 +12,10 @@ const immer =
   >(
     config: StateCreator<
       T,
-      (partial: ((draft: Draft<T>) => void) | T, replace?: boolean) => void,
+      (
+        partial: ((draft: Draft<T>) => void) | Partial<T>,
+        replace?: boolean
+      ) => void,
       CustomGetState,
       CustomStoreApi
     >
@@ -32,7 +35,22 @@ const immer =
 
 describe("createLens", () => {
   it("returns a scoped set/get pair", () => {
-    const store = create<any>((set, get) => {
+    type State = {
+      deeply: {
+        nested: {
+          id: number;
+          prop: string;
+        };
+      };
+
+      getter;
+      partial;
+      partialFn;
+      replace;
+      replaceFn;
+    };
+
+    const store = create<State>((set, get) => {
       const [_set, _get] = createLens(set, get, ["deeply", "nested"]);
 
       return {

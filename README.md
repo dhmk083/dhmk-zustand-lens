@@ -78,6 +78,27 @@ It calls provided function with two arguments: set and get. These two functions 
 
 **WARNING**: you should not use return value of this function in your code. It returns opaque object that is transformed into a real object by `withLenses` function.
 
+Also, you can use type helper if you want to separate your function from `lens` wrapper:
+
+```ts
+type MenuState = {
+  isOpened: boolean;
+
+  toggle(open);
+};
+
+// `set` and `get` are typed
+const menuState: Lens<MenuState> = (set, get) => ({
+  isOpened: false,
+
+  toggle(open) {
+    set({ isOpened: open });
+  },
+});
+
+const menuSlice = lens(menuState);
+```
+
 ### `createLens(set, get, path: string | string[]): [set, get]`
 
 Creates explicit lens object.

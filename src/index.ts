@@ -17,11 +17,16 @@ import {
 import type { Draft } from "immer";
 
 type ImmerSet<T> = (
-  partial: ((draft: Draft<T>) => void) | T,
+  partial: ((draft: Draft<T>) => void) | Partial<T>,
   replace?: boolean
 ) => void;
 
-type SetState2<T> = (arg: T | ((prev: T) => T), replace?: boolean) => void;
+type SetState2<T> = T extends State
+  ? SetState<T>
+  : T extends boolean
+  ? (arg: boolean | ((prev: boolean) => boolean), replace?: boolean) => void
+  : (arg: T | ((prev: T) => T), replace?: boolean) => void;
+
 type GetState2<T> = () => T;
 
 export function createLens<T extends State, P extends string[]>(
@@ -74,9 +79,9 @@ const isLens = (x) => !!x && x[LENS_TAG];
 
 let canCreateLens = false;
 
-export function lens<T extends State>(
-  fn: (set: SetState<T>, get: GetState<T>) => T
-): T {
+export type Lens<T extends State> = (set: SetState<T>, get: GetState<T>) => T;
+
+export function lens<T extends State>(fn: Lens<T>): T {
   if (!canCreateLens)
     throw new Error(
       "`lens` function has been called outside `withLenses` function."
