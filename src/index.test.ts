@@ -1,37 +1,7 @@
 import create from "zustand/vanilla";
-import { State, SetState, GetState, StoreApi, StateCreator } from "zustand";
-import produce, { isDraft, Draft } from "immer";
+import { immer } from "zustand/middleware/immer";
+import { isDraft } from "immer";
 import { createLens, lens, withLenses } from "./";
-
-const immer =
-  <
-    T extends State,
-    CustomSetState extends SetState<T> = SetState<T>,
-    CustomGetState extends GetState<T> = GetState<T>,
-    CustomStoreApi extends StoreApi<T> = StoreApi<T>
-  >(
-    config: StateCreator<
-      T,
-      (
-        partial: ((draft: Draft<T>) => void) | Partial<T>,
-        replace?: boolean
-      ) => void,
-      CustomGetState,
-      CustomStoreApi
-    >
-  ): StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi> =>
-  (set, get, api) =>
-    config(
-      (partial, replace) => {
-        const nextState =
-          typeof partial === "function"
-            ? produce(partial as (state: Draft<T>) => T)
-            : (partial as T);
-        return set(nextState, replace);
-      },
-      get,
-      api
-    );
 
 describe("createLens", () => {
   it("returns a scoped set/get pair", () => {
@@ -133,7 +103,7 @@ type Store = {
 
 describe("immer", () => {
   it("works out-of-the-box", () => {
-    const store = create<Store>(
+    const store = create<Store>()(
       immer(
         withLenses(() => ({
           subA: lens<SubStore>((set) => ({

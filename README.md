@@ -26,7 +26,7 @@ create((set, get) => {
 ## Install
 
 ```
-npm install @dhmk/zustand-lens
+npm install @dhmk/zustand-lens@next
 ```
 
 ## Usage
@@ -198,36 +198,11 @@ const store2 = create(
 Immer is supported out-of-the-box. You just need to type the whole store. There is one caveat, however. Draft's type will be `T` and not `Draft<T>`. You can either add it yourself, or just don't use readonly properties in your type.
 
 ```ts
-import produce, { Draft } from "immer";
+// zustand v4 includes immer middleware
+import { immer } from "zustand/middleware/immer";
 
-const immer =
-  <
-    T extends State,
-    CustomSetState extends SetState<T> = SetState<T>,
-    CustomGetState extends GetState<T> = GetState<T>,
-    CustomStoreApi extends StoreApi<T> = StoreApi<T>
-  >(
-    config: StateCreator<
-      T,
-      (partial: ((draft: Draft<T>) => void) | T, replace?: boolean) => void,
-      CustomGetState,
-      CustomStoreApi
-    >
-  ): StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi> =>
-  (set, get, api) =>
-    config(
-      (partial, replace) => {
-        const nextState =
-          typeof partial === "function"
-            ? produce(partial as (state: Draft<T>) => T)
-            : (partial as T);
-        return set(nextState, replace);
-      },
-      get,
-      api
-    );
-
-const store = create<Store>(
+// use curried `create`, see: https://github.com/pmndrs/zustand#typescript-usage
+const store = create<Store>()(
   immer(
     withLenses(() => ({
       id: 123,

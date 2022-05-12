@@ -3,7 +3,7 @@ import type {
   GetState,
   SetState,
   StateCreator,
-  StoreApi,
+  StoreMutatorIdentifier,
 } from "zustand/vanilla";
 
 import {
@@ -14,21 +14,23 @@ import {
   PropType,
 } from "@dhmk/utils";
 
-import type { Draft } from "immer";
-
-type ImmerSet<T> = (
-  partial: ((draft: Draft<T>) => void) | Partial<T>,
-  replace?: boolean
+type SetState2<T> = (
+  partial: Partial<T> | ((state: T) => Partial<T> | void),
+  replace?: boolean | undefined
 ) => void;
-
-type SetState2<T> = T extends State
-  ? SetState<T>
-  : T extends boolean
-  ? (arg: boolean | ((prev: boolean) => boolean), replace?: boolean) => void
-  : (arg: T | ((prev: T) => T), replace?: boolean) => void;
 
 type GetState2<T> = () => T;
 
+export function createLens<T extends State, P extends string[]>(
+  set: SetState<T>,
+  get: GetState<T>,
+  path: [...P]
+): [SetState2<PropType<T, P>>, GetState2<PropType<T, P>>];
+export function createLens<T extends State, P extends string>(
+  set: SetState<T>,
+  get: GetState<T>,
+  path: P
+): [SetState2<PropType<T, [P]>>, GetState2<PropType<T, [P]>>];
 export function createLens<T extends State, P extends string[]>(
   set: SetState2<T>,
   get: GetState2<T>,
@@ -39,16 +41,6 @@ export function createLens<T extends State, P extends string>(
   get: GetState2<T>,
   path: P
 ): [SetState2<PropType<T, [P]>>, GetState2<PropType<T, [P]>>];
-export function createLens<T extends State, P extends string[]>(
-  set: ImmerSet<T>,
-  get: GetState2<T>,
-  path: [...P]
-): [ImmerSet<PropType<T, P>>, GetState2<PropType<T, P>>];
-export function createLens<T extends State, P extends string>(
-  set: ImmerSet<T>,
-  get: GetState2<T>,
-  path: P
-): [ImmerSet<PropType<T, [P]>>, GetState2<PropType<T, [P]>>];
 export function createLens(set, get, path) {
   const normPath = typeof path === "string" ? [path] : path;
 
@@ -79,7 +71,11 @@ const isLens = (x) => !!x && x[LENS_TAG];
 
 let canCreateLens = false;
 
-export type Lens<T extends State> = (set: SetState<T>, get: GetState<T>) => T;
+export type Setter<T extends State> = SetState2<T>;
+
+export type Getter<T extends State> = GetState<T>;
+
+export type Lens<T extends State> = (set: Setter<T>, get: Getter<T>) => T;
 
 export function lens<T extends State>(fn: Lens<T>): T {
   if (!canCreateLens)
@@ -115,20 +111,31 @@ const findLensAndCreate = (x, set, get, path = [] as string[]) => {
   return res;
 };
 
-export const withLenses =
-  <
-    T extends State,
-    CustomSetState = SetState<T>,
-    CustomGetState extends GetState<T> = GetState<T>,
-    CustomStoreApi extends StoreApi<T> = StoreApi<T>
-  >(
-    config: StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi>
-  ): StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi> =>
-  (set, get, api) => {
-    try {
-      canCreateLens = true;
-      return findLensAndCreate(config(set, get, api), set, get);
-    } finally {
-      canCreateLens = false;
-    }
-  };
+type PopArgument<T extends (...a: never[]) => unknown> = T extends (
+  ...a: [...infer A, infer _]
+) => infer R
+  ? (...a: A) => R
+  : never;
+
+type WithLensesImpl = <T extends State>(
+  f: PopArgument<StateCreator<T, [], []>>
+) => PopArgument<StateCreator<T, [], []>>;
+
+const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
+  try {
+    canCreateLens = true;
+    return findLensAndCreate(config(set, get, api), set, get);
+  } finally {
+    canCreateLens = false;
+  }
+};
+
+type WithLenses = <
+  T extends State,
+  Mps extends [StoreMutatorIdentifier, unknown][] = [],
+  Mcs extends [StoreMutatorIdentifier, unknown][] = []
+>(
+  f: StateCreator<T, Mps, Mcs>
+) => StateCreator<T, Mps, Mcs>;
+
+export const withLenses = withLensesImpl as unknown as WithLenses;
