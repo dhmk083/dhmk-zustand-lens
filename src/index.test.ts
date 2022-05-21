@@ -117,6 +117,42 @@ describe("createLens", () => {
     bSet({ value: "def" });
     expect(bGet()).toEqual({ id: 456, value: "def" });
   });
+
+  it("passes rest arguments to parent setter", () => {
+    let store = {
+      subA: {
+        id: 123,
+        value: "abc",
+      },
+    };
+
+    const set = jest.fn((partial, replace, arg1, arg2, arg3) => {
+      store = Object.assign({}, store, partial(store));
+    });
+    const get = () => store;
+
+    const [aSet] = createLens(set, get, "subA");
+
+    aSet({ value: "def" }, true, "arg1", "arg2", "arg3");
+    expect(set).toBeCalledWith(
+      expect.any(Function),
+      false,
+      "arg1",
+      "arg2",
+      "arg3"
+    );
+
+    set.mockClear();
+
+    aSet(() => ({ value: "def" }), true, "arg3", "arg4", "arg5");
+    expect(set).toBeCalledWith(
+      expect.any(Function),
+      false,
+      "arg3",
+      "arg4",
+      "arg5"
+    );
+  });
 });
 
 type SubStore = {

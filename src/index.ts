@@ -4,6 +4,7 @@ import type {
   SetState,
   StateCreator,
   StoreApi,
+  PartialState,
 } from "zustand/vanilla";
 
 import {
@@ -22,10 +23,34 @@ type ImmerSet<T> = (
 ) => void;
 
 type SetState2<T> = T extends State
-  ? SetState<T>
+  ? <
+      K1 extends keyof T,
+      K2 extends keyof T = K1,
+      K3 extends keyof T = K2,
+      K4 extends keyof T = K3
+    >(
+      partial: PartialState<T, K1, K2, K3, K4>,
+      replace?: boolean,
+      ...args
+    ) => void
   : T extends boolean
-  ? (arg: boolean | ((prev: boolean) => boolean), replace?: boolean) => void
-  : (arg: T | ((prev: T) => T), replace?: boolean) => void;
+  ? (
+      arg: boolean | ((prev: boolean) => boolean),
+      replace?: boolean,
+      ...args
+    ) => void
+  : (arg: T | ((prev: T) => T), replace?: boolean, ...args) => void;
+
+// Lens<T> constraint
+type SetStateConstraint<T extends State> = <
+  K1 extends keyof T,
+  K2 extends keyof T = K1,
+  K3 extends keyof T = K2,
+  K4 extends keyof T = K3
+>(
+  partial: PartialState<T, K1, K2, K3, K4>,
+  ...args
+) => void;
 
 type GetState2<T> = () => T;
 
@@ -52,21 +77,29 @@ export function createLens<T extends State, P extends string>(
 export function createLens(set, get, path) {
   const normPath = typeof path === "string" ? [path] : path;
 
-  const _set = (partial, replace) =>
-    set((parentValue) => {
-      const ourOldValue: any = getIn(parentValue, normPath);
-      const ourTmpValue =
-        typeof partial === "function" ? partial(ourOldValue) : partial;
-      const isPlain = isPlainObject(ourOldValue);
-      const ourNextValue =
-        replace || !isPlain ? ourTmpValue : { ...ourOldValue, ...ourTmpValue };
+  const _set = (partial, replace, ...args) =>
+    set(
+      (parentValue) => {
+        const ourOldValue: any = getIn(parentValue, normPath);
+        const ourTmpValue =
+          typeof partial === "function" ? partial(ourOldValue) : partial;
+        const isPlain = isPlainObject(ourOldValue);
+        const ourNextValue =
+          replace || !isPlain
+            ? ourTmpValue
+            : { ...ourOldValue, ...ourTmpValue };
 
-      const isSame = isPlain
-        ? shallowEqual(ourOldValue as any, ourNextValue)
-        : ourOldValue === ourNextValue; // todo Object.is
+        const isSame = isPlain
+          ? shallowEqual(ourOldValue as any, ourNextValue)
+          : ourOldValue === ourNextValue; // todo Object.is
 
-      return isSame ? parentValue : setIn(parentValue, normPath, ourNextValue);
-    });
+        return isSame
+          ? parentValue
+          : setIn(parentValue, normPath, ourNextValue);
+      },
+      false,
+      ...args
+    );
 
   const _get = () => getIn(get(), normPath);
 
@@ -79,9 +112,15 @@ const isLens = (x) => !!x && x[LENS_TAG];
 
 let canCreateLens = false;
 
-export type Lens<T extends State> = (set: SetState<T>, get: GetState<T>) => T;
+export type Lens<
+  T extends State,
+  Setter extends SetStateConstraint<T> = SetState2<T>
+> = (set: Setter, get: GetState<T>) => T;
 
-export function lens<T extends State>(fn: Lens<T>): T {
+export function lens<
+  T extends State,
+  Setter extends SetStateConstraint<T> = SetState2<T>
+>(fn: Lens<T, Setter>): T {
   if (!canCreateLens)
     throw new Error(
       "`lens` function has been called outside `withLenses` function."
