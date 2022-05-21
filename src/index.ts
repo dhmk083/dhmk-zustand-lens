@@ -16,7 +16,8 @@ import {
 
 type SetState2<T> = (
   partial: Partial<T> | ((state: T) => Partial<T> | void),
-  replace?: boolean | undefined
+  replace?: boolean | undefined,
+  ...args
 ) => void;
 
 type GetState2<T> = () => T;
@@ -44,21 +45,29 @@ export function createLens<T extends State, P extends string>(
 export function createLens(set, get, path) {
   const normPath = typeof path === "string" ? [path] : path;
 
-  const _set = (partial, replace) =>
-    set((parentValue) => {
-      const ourOldValue: any = getIn(parentValue, normPath);
-      const ourTmpValue =
-        typeof partial === "function" ? partial(ourOldValue) : partial;
-      const isPlain = isPlainObject(ourOldValue);
-      const ourNextValue =
-        replace || !isPlain ? ourTmpValue : { ...ourOldValue, ...ourTmpValue };
+  const _set = (partial, replace, ...args) =>
+    set(
+      (parentValue) => {
+        const ourOldValue: any = getIn(parentValue, normPath);
+        const ourTmpValue =
+          typeof partial === "function" ? partial(ourOldValue) : partial;
+        const isPlain = isPlainObject(ourOldValue);
+        const ourNextValue =
+          replace || !isPlain
+            ? ourTmpValue
+            : { ...ourOldValue, ...ourTmpValue };
 
-      const isSame = isPlain
-        ? shallowEqual(ourOldValue as any, ourNextValue)
-        : ourOldValue === ourNextValue; // todo Object.is
+        const isSame = isPlain
+          ? shallowEqual(ourOldValue as any, ourNextValue)
+          : ourOldValue === ourNextValue; // todo Object.is
 
-      return isSame ? parentValue : setIn(parentValue, normPath, ourNextValue);
-    });
+        return isSame
+          ? parentValue
+          : setIn(parentValue, normPath, ourNextValue);
+      },
+      false,
+      ...args
+    );
 
   const _get = () => getIn(get(), normPath);
 
@@ -75,9 +84,15 @@ export type Setter<T extends State> = SetState2<T>;
 
 export type Getter<T extends State> = GetState<T>;
 
-export type Lens<T extends State> = (set: Setter<T>, get: Getter<T>) => T;
+export type Lens<
+  T extends State,
+  Setter extends SetState2<T> = SetState2<T>
+> = (set: Setter, get: GetState<T>) => T;
 
-export function lens<T extends State>(fn: Lens<T>): T {
+export function lens<
+  T extends State,
+  Setter extends SetState2<T> = SetState2<T>
+>(fn: Lens<T, Setter>): T {
   if (!canCreateLens)
     throw new Error(
       "`lens` function has been called outside `withLenses` function."

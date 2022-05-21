@@ -76,6 +76,8 @@ Creates a lens object.
 
 It calls provided function with two arguments: set and get. These two functions write and read a subset of global state relative to a place where `lens` is appeared.
 
+Setter has this signature: `(value: Partial<T> | ((prev: T) => Partial<T>), replace?: boolean, ...args) => void`. It passes unknown arguments to a top-level `set` function.
+
 **WARNING**: you should not use return value of this function in your code. It returns opaque object that is transformed into a real object by `withLenses` function.
 
 Also, you can use type helper if you want to separate your function from `lens` wrapper:
