@@ -13,6 +13,7 @@ import {
   shallowEqual,
   isPlainObject,
   PropType,
+  arraysEqual,
 } from "@dhmk/utils";
 
 import type { Draft } from "immer";
@@ -84,13 +85,18 @@ export function createLens(set, get, path) {
         const ourTmpValue =
           typeof partial === "function" ? partial(ourOldValue) : partial;
         const isPlain = isPlainObject(ourOldValue);
+        const isArray = Array.isArray(ourOldValue);
         const ourNextValue =
-          replace || !isPlain
+          replace || (!isPlain && !isArray)
             ? ourTmpValue
-            : { ...ourOldValue, ...ourTmpValue };
+            : isPlain
+            ? { ...ourOldValue, ...ourTmpValue }
+            : [...ourOldValue, ...ourTmpValue];
 
         const isSame = isPlain
           ? shallowEqual(ourOldValue as any, ourNextValue)
+          : isArray
+          ? arraysEqual(ourOldValue, ourNextValue)
           : ourOldValue === ourNextValue; // todo Object.is
 
         return isSame
@@ -137,8 +143,10 @@ export function lens<
 const findLensAndCreate = (x, set, get, path = [] as string[]) => {
   let res = x;
 
-  if (isPlainObject(x)) {
-    res = {};
+  const isPlain = isPlainObject(x);
+  const isArray = Array.isArray(x);
+  if (isPlain || isArray) {
+    res = isPlain ? {} : [];
 
     for (const k in x) {
       let v = x[k];

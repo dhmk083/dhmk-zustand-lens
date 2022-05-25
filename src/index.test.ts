@@ -89,6 +89,72 @@ describe("createLens", () => {
     expect(store.getState().getter()).toEqual({ id: 456, prop: "qwe-qwe" });
   });
 
+  it("works with arrays", () => {
+    type State = {
+      deeply: {
+        nested: {
+          array: {
+            id: number;
+            prop: string;
+          }[];
+        };
+      };
+
+      getter;
+      partial;
+      partialFn;
+      replace;
+      replaceFn;
+    };
+
+    const store = create<State>((set, get) => {
+      const [_set, _get] = createLens(set, get, [
+        "deeply",
+        "nested",
+        "array",
+        "0",
+      ]);
+
+      return {
+        deeply: {
+          nested: {
+            array: [
+              {
+                id: 123,
+                prop: "abc",
+              },
+            ],
+          },
+        },
+
+        getter: _get,
+
+        partial: () => _set({ prop: "def" }),
+
+        partialFn: () => _set((old) => ({ prop: old.prop + "-def" })),
+
+        replace: () => _set({ prop: "qwe" }, true),
+
+        replaceFn: () =>
+          _set((old) => ({ id: 456, prop: old.prop + "-qwe" }), true),
+      };
+    });
+
+    expect(store.getState().getter()).toEqual({ id: 123, prop: "abc" });
+
+    store.getState().partial();
+    expect(store.getState().getter()).toEqual({ id: 123, prop: "def" });
+
+    store.getState().partialFn();
+    expect(store.getState().getter()).toEqual({ id: 123, prop: "def-def" });
+
+    store.getState().replace();
+    expect(store.getState().getter()).toEqual({ prop: "qwe" });
+
+    store.getState().replaceFn();
+    expect(store.getState().getter()).toEqual({ id: 456, prop: "qwe-qwe" });
+  });
+
   it("takes `path` as `string | string[]`", () => {
     let store = {
       subA: {
