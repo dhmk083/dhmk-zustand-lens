@@ -12,7 +12,10 @@ import {
   shallowEqual,
   isPlainObject,
   PropType,
+  arraysEqual,
 } from "@dhmk/utils";
+
+import type { O, L, A } from "ts-toolbelt";
 
 type SetState2<T> = (
   partial: Partial<T> | ((state: T) => Partial<T> | void),
@@ -22,26 +25,26 @@ type SetState2<T> = (
 
 type GetState2<T> = () => T;
 
-export function createLens<T extends State, P extends string[]>(
+export function createLens<T extends State, P extends L.List<A.Key>>(
   set: SetState<T>,
   get: GetState<T>,
   path: [...P]
-): [SetState2<PropType<T, P>>, GetState2<PropType<T, P>>];
-export function createLens<T extends State, P extends string>(
+): [SetState2<O.Path<T, P>>, GetState2<O.Path<T, P>>];
+export function createLens<T extends State, P extends A.Key>(
   set: SetState<T>,
   get: GetState<T>,
   path: P
-): [SetState2<PropType<T, [P]>>, GetState2<PropType<T, [P]>>];
-export function createLens<T extends State, P extends string[]>(
+): [SetState2<O.Path<T, [P]>>, GetState2<O.Path<T, [P]>>];
+export function createLens<T extends State, P extends L.List<A.Key>>(
   set: SetState2<T>,
   get: GetState2<T>,
   path: [...P]
-): [SetState2<PropType<T, P>>, GetState2<PropType<T, P>>];
-export function createLens<T extends State, P extends string>(
+): [SetState2<O.Path<T, P>>, GetState2<O.Path<T, P>>];
+export function createLens<T extends State, P extends A.Key>(
   set: SetState2<T>,
   get: GetState2<T>,
   path: P
-): [SetState2<PropType<T, [P]>>, GetState2<PropType<T, [P]>>];
+): [SetState2<O.Path<T, [P]>>, GetState2<O.Path<T, [P]>>];
 export function createLens(set, get, path) {
   const normPath = typeof path === "string" ? [path] : path;
 
@@ -52,13 +55,18 @@ export function createLens(set, get, path) {
         const ourTmpValue =
           typeof partial === "function" ? partial(ourOldValue) : partial;
         const isPlain = isPlainObject(ourOldValue);
+        const isArray = Array.isArray(ourOldValue);
         const ourNextValue =
-          replace || !isPlain
+          replace || (!isPlain && !isArray)
             ? ourTmpValue
-            : { ...ourOldValue, ...ourTmpValue };
+            : isPlain
+            ? { ...ourOldValue, ...ourTmpValue }
+            : [...ourOldValue, ...ourTmpValue];
 
         const isSame = isPlain
           ? shallowEqual(ourOldValue as any, ourNextValue)
+          : isArray
+          ? arraysEqual(ourOldValue, ourNextValue)
           : ourOldValue === ourNextValue; // todo Object.is
 
         return isSame
@@ -109,8 +117,10 @@ export function lens<
 const findLensAndCreate = (x, set, get, path = [] as string[]) => {
   let res = x;
 
-  if (isPlainObject(x)) {
-    res = {};
+  const isPlain = isPlainObject(x);
+  const isArray = Array.isArray(x);
+  if (isPlain || isArray) {
+    res = isPlain ? {} : [];
 
     for (const k in x) {
       let v = x[k];
