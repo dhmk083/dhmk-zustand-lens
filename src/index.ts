@@ -108,33 +108,44 @@ export function createLens(set, get, path) {
 
 const LENS_TAG = "@dhmk/LENS_TAG";
 
-const isLens = (x) => !!x && x[LENS_TAG];
+const isLens = (x): x is LensCreator<any> => !!x && x[LENS_TAG];
 
-let canCreateLens = false;
+type LensCreator<T> = {
+  (set, get, api, path): T;
+  [LENS_TAG]: true;
+};
+
+// https://stackoverflow.com/a/55541672
+type IsAny<T> = 0 extends 1 & T ? true : false;
+
+type ResolveStoreApi<X> = IsAny<X> extends true
+  ? StoreApi<any>
+  : X extends StoreApi<any>
+  ? X
+  : X extends State
+  ? StoreApi<X>
+  : unknown;
 
 export type Lens<
   T extends State,
+  S extends State | StoreApi<State> = State,
   Setter extends SetStateConstraint<T> = SetState2<T>
-> = (set: Setter, get: GetState<T>) => T;
+> = (set: Setter, get: GetState<T>, api: ResolveStoreApi<S>) => T;
 
 export function lens<
   T extends State,
+  S extends State | StoreApi<State> = State,
   Setter extends SetStateConstraint<T> = SetState2<T>
->(fn: Lens<T, Setter>): T {
-  if (!canCreateLens)
-    throw new Error(
-      "`lens` function has been called outside `withLenses` function."
-    );
-
-  const self = (set, get, path) => {
+>(fn: Lens<T, S, Setter>): T {
+  const self = (set, get, api, path) => {
     const [_set, _get]: any = createLens(set, get, path);
-    return fn(_set, _get);
+    return fn(_set, _get, api);
   };
   self[LENS_TAG] = true;
   return self as any;
 }
 
-const findLensAndCreate = (x, set, get, path = [] as string[]) => {
+const findLensAndCreate = (x, set, get, api, path = [] as string[]) => {
   let res = x;
 
   if (isPlainObject(x)) {
@@ -144,7 +155,7 @@ const findLensAndCreate = (x, set, get, path = [] as string[]) => {
       let v = x[k];
 
       if (isLens(v)) {
-        v = v(set, get, path.concat(k));
+        v = v(set, get, api, path.concat(k));
       }
 
       res[k] = findLensAndCreate(v, set, get, path.concat(k));
@@ -153,6 +164,21 @@ const findLensAndCreate = (x, set, get, path = [] as string[]) => {
 
   return res;
 };
+
+// using this would require to explicitly type all `lens` in addition to typing the whole store
+type ResolveLenses<T> = T extends
+  | ReadonlyArray<any>
+  | ReadonlySet<any>
+  | ReadonlyMap<any, any>
+  | Date
+  ? T
+  : T extends Record<any, any>
+  ? {
+      [P in keyof T]: T[P] extends LensCreator<infer L>
+        ? ResolveLenses<L>
+        : T[P];
+    }
+  : T;
 
 export const withLenses =
   <
@@ -163,11 +189,5 @@ export const withLenses =
   >(
     config: StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi>
   ): StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi> =>
-  (set, get, api) => {
-    try {
-      canCreateLens = true;
-      return findLensAndCreate(config(set, get, api), set, get);
-    } finally {
-      canCreateLens = false;
-    }
-  };
+  (set, get, api) =>
+    findLensAndCreate(config(set, get, api), set, get, api);

@@ -212,3 +212,49 @@ describe("immer", () => {
     expect(store.getState().subB.name).toBe("changed");
   });
 });
+
+describe("lens", () => {
+  it("calls creator function with (set, get, api)", () => {
+    interface Store {
+      sub: {
+        name: string;
+      };
+    }
+
+    const store = create<Store>(
+      withLenses((storeSet, storeGet, storeApi) => ({
+        sub: lens((set, get, api) => {
+          expect(set).toEqual(expect.any(Function));
+          expect(get).toEqual(expect.any(Function));
+          expect(api).toBe(storeApi);
+
+          api.getState();
+
+          return { name: "" };
+        }),
+      }))
+    );
+
+    expect.assertions(3);
+  });
+
+  it("doesn`t throw an error if created outside `withLenses` function", () => {
+    const todosSlice = lens(() => ({
+      todos: [1],
+    }));
+
+    const usersSlice = lens(() => ({
+      users: [2],
+    }));
+
+    const useStore = create(
+      withLenses(() => ({
+        todosSlice,
+        usersSlice,
+      }))
+    );
+
+    expect(useStore.getState().todosSlice.todos).toEqual([1]);
+    expect(useStore.getState().usersSlice.users).toEqual([2]);
+  });
+});
