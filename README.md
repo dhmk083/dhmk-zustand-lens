@@ -4,7 +4,7 @@ Lens support for zustand.
 
 With this package you can easily create sub-stores inside main store.
 
-A lens is a pair of functions `set` and `get` which have same signatures as zustand's functions, but they operate only on a particular slice of main state.
+A lens has a pair of functions `set` and `get` which have same signatures as zustand's functions, but they operate only on a particular slice of main state.
 
 A quick comparison:
 
@@ -39,14 +39,14 @@ import { withLenses, lens } from '@dhmk/zustand-lens'
 const useStore = create(withLenses((set, get, api) => {
   return {
     // set, get - only for storeA
-    storeA: lens((set, get) => ({
+    storeA: lens((set, get, api) => ({
       data: ...,
 
       action: (arg) => set({data: arg})
     })),
 
     // set, get - only for storeB
-    storeB: lens((set, get) => ({
+    storeB: lens((set, get, api) => ({
       data: ...,
 
       action: (arg) => set({data: arg})
@@ -70,7 +70,7 @@ Middleware function.
 
 It calls `config` function with the same args as the default zustand's `create` function and then converts returned object expanding all `lens` instances to proper objects.
 
-### `lens(fn: (set, get) => T): T`
+### `lens(fn: (set, get, api) => T): T`
 
 Creates a lens object.
 
@@ -80,9 +80,31 @@ Setter has this signature: `(value: Partial<T> | ((prev: T) => Partial<T>), repl
 
 **WARNING**: you should not use return value of this function in your code. It returns opaque object that is transformed into a real object by `withLenses` function.
 
+**NOTE**: this function used to throw an error if it was called outside `withLenses` function. It was meant for accenting, that `lens` can not be created dynamically after `withLenses` has been called. But it's fine to create lens beforehand, so I removed that error (1.0.3 and 2.0.3). Now you can call it like this:
+
+```js
+const todosSlice = lens(() => ...)
+const usersSlice = lens(() => ...)
+
+const useStore = create(withLenses(() => ({
+  todosSlice,
+  usersSlice,
+})))
+```
+
 Also, you can use type helper if you want to separate your function from `lens` wrapper:
 
 ```ts
+import { Lens, lens } from "@dhmk/zustand-lens";
+
+/*
+type Lens<
+  T,      // slice type
+  S,      // store state type or store api type
+  Setter  // `set` function type
+>
+*/
+
 type MenuState = {
   isOpened: boolean;
 
@@ -90,7 +112,7 @@ type MenuState = {
 };
 
 // `set` and `get` are typed
-const menuState: Lens<MenuState> = (set, get) => ({
+const menuState: Lens<MenuState> = (set, get, api) => ({
   isOpened: false,
 
   toggle(open) {
