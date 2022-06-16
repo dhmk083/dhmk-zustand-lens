@@ -187,7 +187,10 @@ export const withLenses =
     CustomGetState extends GetState<T> = GetState<T>,
     CustomStoreApi extends StoreApi<T> = StoreApi<T>
   >(
-    config: StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi>
+    config: StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi> | T
   ): StateCreator<T, CustomSetState, CustomGetState, CustomStoreApi> =>
-  (set, get, api) =>
-    findLensAndCreate(config(set, get, api), set, get, api);
+  (set, get, api) => {
+    // @ts-ignore
+    const obj = typeof config === "function" ? config(set, get, api) : config;
+    return findLensAndCreate(obj, set, get, api);
+  };

@@ -70,9 +70,13 @@ const useStore = create(withLenses((set, get, api) => {
 
 ### `withLenses(config: (set, get, api) => T): T`
 
+### `withLenses(obj: T): T`
+
 Middleware function.
 
 It calls `config` function with the same args as the default zustand's `create` function and then converts returned object expanding all `lens` instances to proper objects.
+
+You can also provide a plain object instead of a function.
 
 ### `lens(fn: (set, get, api) => T): T`
 
@@ -90,10 +94,10 @@ Setter has this signature: `(value: Partial<T> | ((prev: T) => Partial<T>), repl
 const todosSlice = lens(() => ...)
 const usersSlice = lens(() => ...)
 
-const useStore = create(withLenses(() => ({
+const useStore = create(withLenses({
   todosSlice,
   usersSlice,
-})))
+}))
 ```
 
 Also, you can use type helper if you want to separate your function from `lens` wrapper:
@@ -188,7 +192,7 @@ type Nested = {
 
 // option 1: type whole store
 const store1 = create<Store>(
-  withLenses(() => ({
+  withLenses({
     id: 123,
     name: "test",
 
@@ -200,12 +204,12 @@ const store1 = create<Store>(
         set((p /* Nested */) => ({ isOk: !p.isOk }));
       },
     })),
-  }))
+  })
 );
 
 // option 2: type lens
 const store2 = create(
-  withLenses(() => ({
+  withLenses({
     id: 123,
     name: "test",
 
@@ -217,7 +221,7 @@ const store2 = create(
         set((p /* Nested */) => ({ isOk: !p.isOk }));
       },
     })),
-  }))
+  })
 );
 ```
 
@@ -257,7 +261,7 @@ const immer =
 
 const store = create<Store>(
   immer(
-    withLenses(() => ({
+    withLenses({
       id: 123,
       name: "test",
 
@@ -271,7 +275,7 @@ const store = create<Store>(
           });
         },
       })),
-    }))
+    })
   )
 );
 ```
