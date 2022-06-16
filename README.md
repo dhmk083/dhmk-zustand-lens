@@ -229,6 +229,8 @@ const store2 = create(
 
 Immer is supported out-of-the-box. You just need to type the whole store. There is one caveat, however. Draft's type will be `T` and not `Draft<T>`. You can either add it yourself, or just don't use readonly properties in your type.
 
+Below is an example of using immer middleware with zustand 3. For zustand 4 you should use built-in middleware: `import { immer } from "zustand/middleware/immer"`.
+
 ```ts
 import produce, { Draft } from "immer";
 
