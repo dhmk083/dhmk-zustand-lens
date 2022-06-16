@@ -74,11 +74,11 @@ It calls `config` function with the same args as the default zustand's `create` 
 
 You can also provide a plain object instead of a function.
 
-### `lens(fn: (set, get, api) => T): T`
+### `lens(fn: (set, get, api, path) => T): T`
 
 Creates a lens object.
 
-It calls provided function with two arguments: set and get. These two functions write and read a subset of global state relative to a place where `lens` is appeared.
+The first two parameters `set` and `get` are functions which write and read a subset of global state relative to a place where `lens` is appeared. The third, `api` parameter is zustand store and the last parameter `path` is an array of strings which represent lens position inside global state.
 
 Setter has this signature: `(value: Partial<T> | ((prev: T) => Partial<T>), replace?: boolean, ...args) => void`. It passes unknown arguments to a top-level `set` function.
 
