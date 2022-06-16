@@ -145,18 +145,21 @@ type PopArgument<T extends (...a: never[]) => unknown> = T extends (
   : never;
 
 type WithLensesImpl = <T extends State>(
-  f: PopArgument<StateCreator<T, [], []>>
+  f: PopArgument<StateCreator<T, [], []>> | T
 ) => PopArgument<StateCreator<T, [], []>>;
 
-const withLensesImpl: WithLensesImpl = (config) => (set, get, api) =>
-  findLensAndCreate(config(set, get, api), set, get, api);
+const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
+  // @ts-ignore
+  const obj = typeof config === "function" ? config(set, get, api) : config;
+  return findLensAndCreate(obj, set, get, api);
+};
 
 type WithLenses = <
   T extends State,
   Mps extends [StoreMutatorIdentifier, unknown][] = [],
   Mcs extends [StoreMutatorIdentifier, unknown][] = []
 >(
-  f: StateCreator<T, Mps, Mcs>
+  f: StateCreator<T, Mps, Mcs> | T
 ) => StateCreator<T, Mps, Mcs>;
 
 export const withLenses = withLensesImpl as unknown as WithLenses;

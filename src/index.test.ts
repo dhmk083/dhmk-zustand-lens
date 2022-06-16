@@ -228,3 +228,32 @@ describe("lens", () => {
     expect(useStore.getState().usersSlice.users).toEqual([2]);
   });
 });
+
+describe("withLenses", () => {
+  it("also accepts an object config", () => {
+    interface Test {
+      test: {
+        name: string;
+        setName;
+      };
+    }
+
+    const store = create<Test>(
+      withLenses({
+        test: lens((set) => ({
+          name: "abc",
+
+          setName() {
+            set({ name: "def" });
+          },
+        })),
+      })
+    );
+
+    expect(store.getState()).toEqual({
+      test: { name: "abc", setName: expect.any(Function) },
+    });
+    store.getState().test.setName();
+    expect(store.getState().test.name).toEqual("def");
+  });
+});
