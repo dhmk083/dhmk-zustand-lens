@@ -214,7 +214,7 @@ describe("immer", () => {
 });
 
 describe("lens", () => {
-  it("calls creator function with (set, get, api)", () => {
+  it("calls creator function with (set, get, api, path)", () => {
     interface Store {
       sub: {
         name: string;
@@ -223,10 +223,11 @@ describe("lens", () => {
 
     const store = create<Store>(
       withLenses((storeSet, storeGet, storeApi) => ({
-        sub: lens((set, get, api) => {
+        sub: lens((set, get, api, path) => {
           expect(set).toEqual(expect.any(Function));
           expect(get).toEqual(expect.any(Function));
           expect(api).toBe(storeApi);
+          expect(path).toEqual(["sub"]);
 
           api.getState();
 
@@ -235,7 +236,7 @@ describe("lens", () => {
       }))
     );
 
-    expect.assertions(3);
+    expect.assertions(4);
   });
 
   it("doesn`t throw an error if created outside `withLenses` function", () => {

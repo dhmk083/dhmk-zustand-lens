@@ -130,7 +130,12 @@ export type Lens<
   T extends State,
   S extends State | StoreApi<State> = State,
   Setter extends SetStateConstraint<T> = SetState2<T>
-> = (set: Setter, get: GetState<T>, api: ResolveStoreApi<S>) => T;
+> = (
+  set: Setter,
+  get: GetState<T>,
+  api: ResolveStoreApi<S>,
+  path: ReadonlyArray<string>
+) => T;
 
 export function lens<
   T extends State,
@@ -139,7 +144,7 @@ export function lens<
 >(fn: Lens<T, S, Setter>): T {
   const self = (set, get, api, path) => {
     const [_set, _get]: any = createLens(set, get, path);
-    return fn(_set, _get, api);
+    return fn(_set, _get, api, path);
   };
   self[LENS_TAG] = true;
   return self as any;
