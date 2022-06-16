@@ -151,15 +151,26 @@ const findLensAndCreate = (x, set, get, api, path = [] as string[]) => {
   if (isPlainObject(x)) {
     res = {};
 
-    for (const k in x) {
+    const keys = Array<string | symbol>().concat(
+      Object.getOwnPropertyNames(x),
+      Object.getOwnPropertySymbols?.(x) ?? [] // ie 11
+    );
+
+    keys.forEach((k) => {
       let v = x[k];
+
+      // Symbol props are only for storing metadata
+      if (typeof k === "symbol") {
+        res[k] = v;
+        return;
+      }
 
       if (isLens(v)) {
         v = v(set, get, api, path.concat(k));
       }
 
       res[k] = findLensAndCreate(v, set, get, path.concat(k));
-    }
+    });
   }
 
   return res;

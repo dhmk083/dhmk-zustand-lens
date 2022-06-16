@@ -286,4 +286,21 @@ describe("withLenses", () => {
     store.getState().test.setName();
     expect(store.getState().test.name).toEqual("def");
   });
+
+  it("preserves Symbols", () => {
+    const symbol = Symbol();
+
+    const store = create(
+      withLenses({
+        test: lens(() => ({
+          [symbol]: true,
+        })),
+
+        [symbol]: true,
+      })
+    );
+
+    expect(store.getState()[symbol]).toEqual(true);
+    expect(store.getState().test[symbol]).toEqual(true);
+  });
 });
