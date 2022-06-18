@@ -250,3 +250,25 @@ const store = create<Store>()(
   )
 );
 ```
+
+## Lens middleware
+
+Since `lens` takes an ordinary function, you can pre-process your lens object with various middleware, in the same way zustand does.
+
+This example uses custom `set` function which takes a new state and an action name for logging.
+
+See the source code for tips on how to write and type your middleware.
+
+```ts
+import { lens, namedSetter } from "@dhmk/zustand-lens";
+
+const test = lens(
+  namedSetter((set) => ({
+    name: "abc",
+
+    setName() {
+      set({ name: "def" }, "@test/setName");
+    },
+  }))
+);
+```

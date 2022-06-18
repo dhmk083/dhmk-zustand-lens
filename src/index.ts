@@ -87,7 +87,7 @@ type LensCreator<T> = {
 // https://stackoverflow.com/a/55541672
 type IsAny<T> = 0 extends 1 & T ? true : false;
 
-type ResolveStoreApi<X> = IsAny<X> extends true
+export type ResolveStoreApi<X> = IsAny<X> extends true
   ? StoreApi<any>
   : X extends StoreApi<any>
   ? X
@@ -179,3 +179,27 @@ type WithLenses = <
 ) => StateCreator<T, Mps, Mcs>;
 
 export const withLenses = withLensesImpl as unknown as WithLenses;
+
+// helpers
+
+export type CustomSetter<F, T extends State, S extends State> = [
+  set: F,
+  get: Getter<T>,
+  api: ResolveStoreApi<S>,
+  path: ReadonlyArray<string>
+];
+
+export const customSetter = (setter) => (fn) => (set, get, api, path) =>
+  fn(setter(set), get, api, path);
+
+export type NamedSet<T extends State> = (
+  partial: Partial<T> | ((state: T) => Partial<T> | void),
+  name?: string,
+  replace?: boolean
+) => void;
+
+export const namedSetter = customSetter(
+  (set) => (partial, name, replace) => set(partial, replace, name)
+) as <T extends State, S extends State = any>(
+  fn: (...args: CustomSetter<NamedSet<T>, T, S>) => T
+) => Lens<T, S>;

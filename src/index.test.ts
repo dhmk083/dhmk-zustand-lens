@@ -1,7 +1,7 @@
 import create from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";
 import { isDraft } from "immer";
-import { createLens, lens, withLenses } from "./";
+import { createLens, lens, withLenses, namedSetter } from "./";
 
 describe("createLens", () => {
   it("returns a scoped set/get pair", () => {
@@ -274,4 +274,25 @@ describe("withLenses", () => {
     expect(store.getState()[symbol]).toEqual(true);
     expect(store.getState().test[symbol]).toEqual(true);
   });
+});
+
+it("namedSetter", () => {
+  interface Test {
+    name: string;
+    setName();
+  }
+
+  const spy = jest.fn();
+  const _ = null as any;
+
+  const state = namedSetter<Test>((set) => ({
+    name: "abc",
+
+    setName() {
+      set({ name: "def" }, "setName");
+    },
+  }))(spy, _, _, _);
+
+  state.setName();
+  expect(spy).toBeCalledWith({ name: "def" }, undefined, "setName");
 });
