@@ -25,8 +25,11 @@ create((set, get) => {
 
 ## Install
 
-```
-npm install @dhmk/zustand-lens@next
+```sh
+npm install @dhmk/zustand-lens
+
+# for zustand v3
+npm install @dhmk/zustand-lens@zustand3
 ```
 
 ## Usage
