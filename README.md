@@ -27,10 +27,10 @@ create((set, get) => {
 
 ```sh
 # for zustand v3
-npm install @dhmk/zustand-lens
+npm install @dhmk/zustand-lens@zustand3
 
 # for zustand v4
-npm install @dhmk/zustand-lens@next
+npm install @dhmk/zustand-lens
 ```
 
 ## Usage
