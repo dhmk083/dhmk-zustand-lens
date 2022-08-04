@@ -272,3 +272,11 @@ const test = lens(
   }))
 );
 ```
+
+## Misc
+
+### `mergeDeep(a, b)`
+
+### `mergeDeep(b)(a)`
+
+Merges object `b` with `a` recursively (doesn't merge arrays).

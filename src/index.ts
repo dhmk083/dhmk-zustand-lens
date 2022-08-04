@@ -15,6 +15,8 @@ import {
   PropType,
 } from "@dhmk/utils";
 
+export { mergeDeep } from "@dhmk/utils";
+
 type SetState2<T> = (
   partial: Partial<T> | ((state: T) => Partial<T> | void),
   replace?: boolean | undefined,
