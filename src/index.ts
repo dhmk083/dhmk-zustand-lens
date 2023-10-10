@@ -5,6 +5,7 @@ import type {
   StateCreator,
   StoreMutatorIdentifier,
   StoreApi,
+  Mutate,
 } from "zustand/vanilla";
 
 import {
@@ -101,6 +102,16 @@ export type Setter<T extends State> = SetState2<T>;
 
 export type Getter<T extends State> = GetState<T>;
 
+class LensTypeInfo<T, S> {
+  private __lensType?: T;
+  private __lensStoreApi?: (lensStoreApi: S) => void;
+}
+
+type LensOpaqueType<
+  T extends State,
+  S extends State | StoreApi<State> = State
+> = T & LensTypeInfo<T, ResolveStoreApi<S>>;
+
 export type Lens<
   T extends State,
   S extends State | StoreApi<State> = State,
@@ -116,7 +127,7 @@ export function lens<
   T extends State,
   S extends State | StoreApi<State> = State,
   Setter extends SetState2<T> = SetState2<T>
->(fn: Lens<T, S, Setter>): T {
+>(fn: Lens<T, S, Setter>): LensOpaqueType<T, S> {
   const self = (set, get, api, path) => {
     const [_set, _get]: any = createLens(set, get, path);
     return fn(_set, _get, api, path);
@@ -156,15 +167,19 @@ const findLensAndCreate = (x, set, get, api, path = [] as string[]) => {
   return res;
 };
 
-type PopArgument<T extends (...a: never[]) => unknown> = T extends (
-  ...a: [...infer A, infer _]
-) => infer R
-  ? (...a: A) => R
-  : never;
+type CheckLenses<T, SA extends StoreApi<State>> = {
+  [P in keyof T]: T[P] extends LensTypeInfo<infer L, infer LSA>
+    ? SA extends LSA
+      ? LensOpaqueType<L, LSA>
+      : LensOpaqueType<L, SA>
+    : T[P] extends object
+    ? CheckLenses<T[P], SA>
+    : T[P];
+};
 
 type WithLensesImpl = <T extends State>(
-  f: PopArgument<StateCreator<T, [], []>> | T
-) => PopArgument<StateCreator<T, [], []>>;
+  f: StateCreator<T, [], []> | T
+) => StateCreator<T, [], []>;
 
 const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
   // @ts-ignore
@@ -175,9 +190,12 @@ const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
 type WithLenses = <
   T extends State,
   Mps extends [StoreMutatorIdentifier, unknown][] = [],
-  Mcs extends [StoreMutatorIdentifier, unknown][] = []
+  Mcs extends [StoreMutatorIdentifier, unknown][] = [],
+  U extends T = T
 >(
-  f: StateCreator<T, Mps, Mcs> | T
+  f:
+    | CheckLenses<U, Mutate<StoreApi<T>, Mps>>
+    | StateCreator<T, Mps, Mcs, CheckLenses<U, Mutate<StoreApi<T>, Mps>>>
 ) => StateCreator<T, Mps, Mcs>;
 
 export const withLenses = withLensesImpl as unknown as WithLenses;
