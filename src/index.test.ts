@@ -193,7 +193,7 @@ describe("lens", () => {
 
     const store = create<Store>(
       withLenses((storeSet, storeGet, storeApi) => ({
-        sub: lens((set, get, api, path) => {
+        sub: lens<{ name: string }>((set, get, api, path) => {
           expect(set).toEqual(expect.any(Function));
           expect(get).toEqual(expect.any(Function));
           expect(api).toBe(storeApi);
@@ -218,12 +218,12 @@ describe("lens", () => {
       users: [2],
     }));
 
-    const useStore = create(
-      withLenses(() => ({
-        todosSlice,
-        usersSlice,
-      }))
-    );
+    const slices = {
+      todosSlice,
+      usersSlice,
+    };
+
+    const useStore = create<typeof slices>(withLenses(slices));
 
     expect(useStore.getState().todosSlice.todos).toEqual([1]);
     expect(useStore.getState().usersSlice.users).toEqual([2]);
@@ -261,15 +261,15 @@ describe("withLenses", () => {
   it("preserves Symbols", () => {
     const symbol = Symbol();
 
-    const store = create(
-      withLenses({
-        test: lens(() => ({
-          [symbol]: true,
-        })),
-
+    const initializer = {
+      test: lens(() => ({
         [symbol]: true,
-      })
-    );
+      })),
+
+      [symbol]: true,
+    };
+
+    const store = create<typeof initializer>()(withLenses(initializer));
 
     expect(store.getState()[symbol]).toEqual(true);
     expect(store.getState().test[symbol]).toEqual(true);
