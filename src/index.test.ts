@@ -1,4 +1,4 @@
-import create from "zustand/vanilla";
+import { createStore as create } from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";
 import { isDraft } from "immer";
 import { createLens, lens, withLenses, namedSetter } from "./";

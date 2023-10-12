@@ -1,7 +1,4 @@
 import type {
-  State,
-  GetState,
-  SetState,
   StateCreator,
   StoreMutatorIdentifier,
   StoreApi,
@@ -18,34 +15,36 @@ import {
 
 export { mergeDeep } from "@dhmk/utils";
 
-type SetState2<T> = (
+export type Setter<T> = (
   partial: Partial<T> | ((state: T) => Partial<T> | void),
   replace?: boolean | undefined,
   ...args
 ) => void;
 
-type GetState2<T> = () => T;
+export type Getter<T> = () => T;
 
-export function createLens<T extends State, P extends string[]>(
+type SetState<T> = StoreApi<T>["setState"];
+
+export function createLens<T, P extends string[]>(
   set: SetState<T>,
-  get: GetState<T>,
+  get: Getter<T>,
   path: [...P]
-): [SetState2<PropType<T, P>>, GetState2<PropType<T, P>>];
-export function createLens<T extends State, P extends string>(
+): [Setter<PropType<T, P>>, Getter<PropType<T, P>>];
+export function createLens<T, P extends string>(
   set: SetState<T>,
-  get: GetState<T>,
+  get: Getter<T>,
   path: P
-): [SetState2<PropType<T, [P]>>, GetState2<PropType<T, [P]>>];
-export function createLens<T extends State, P extends string[]>(
-  set: SetState2<T>,
-  get: GetState2<T>,
+): [Setter<PropType<T, [P]>>, Getter<PropType<T, [P]>>];
+export function createLens<T, P extends string[]>(
+  set: Setter<T>,
+  get: Getter<T>,
   path: [...P]
-): [SetState2<PropType<T, P>>, GetState2<PropType<T, P>>];
-export function createLens<T extends State, P extends string>(
-  set: SetState2<T>,
-  get: GetState2<T>,
+): [Setter<PropType<T, P>>, Getter<PropType<T, P>>];
+export function createLens<T, P extends string>(
+  set: Setter<T>,
+  get: Getter<T>,
   path: P
-): [SetState2<PropType<T, [P]>>, GetState2<PropType<T, [P]>>];
+): [Setter<PropType<T, [P]>>, Getter<PropType<T, [P]>>];
 export function createLens(set, get, path) {
   const normPath = typeof path === "string" ? [path] : path;
 
@@ -94,40 +93,27 @@ export type ResolveStoreApi<X> = IsAny<X> extends true
   ? StoreApi<any>
   : X extends StoreApi<any>
   ? X
-  : X extends State
+  : X extends unknown
   ? StoreApi<X>
   : unknown;
-
-export type Setter<T extends State> = SetState2<T>;
-
-export type Getter<T extends State> = GetState<T>;
 
 class LensTypeInfo<T, S> {
   private __lensType?: T;
   private __lensStoreApi?: (lensStoreApi: S) => void;
 }
 
-type LensOpaqueType<
-  T extends State,
-  S extends State | StoreApi<State> = State
-> = T & LensTypeInfo<T, ResolveStoreApi<S>>;
+type LensOpaqueType<T, S> = T & LensTypeInfo<T, ResolveStoreApi<S>>;
 
-export type Lens<
-  T extends State,
-  S extends State | StoreApi<State> = State,
-  Setter extends SetState2<T> = SetState2<T>
-> = (
-  set: Setter,
-  get: GetState<T>,
+export type Lens<T, S = unknown, Setter_ extends Setter<T> = Setter<T>> = (
+  set: Setter_,
+  get: Getter<T>,
   api: ResolveStoreApi<S>,
   path: ReadonlyArray<string>
 ) => T;
 
-export function lens<
-  T extends State,
-  S extends State | StoreApi<State> = State,
-  Setter extends SetState2<T> = SetState2<T>
->(fn: Lens<T, S, Setter>): LensOpaqueType<T, S> {
+export function lens<T, S = unknown, Setter_ extends Setter<T> = Setter<T>>(
+  fn: Lens<T, S, Setter_>
+): LensOpaqueType<T, S> {
   const self = (set, get, api, path) => {
     const [_set, _get]: any = createLens(set, get, path);
     return fn(_set, _get, api, path);
@@ -167,7 +153,7 @@ const findLensAndCreate = (x, set, get, api, path = [] as string[]) => {
   return res;
 };
 
-type CheckLenses<T, SA extends StoreApi<State>> = {
+type CheckLenses<T, SA extends StoreApi<unknown>> = {
   [P in keyof T]: T[P] extends LensTypeInfo<infer L, infer LSA>
     ? SA extends LSA
       ? LensOpaqueType<L, LSA>
@@ -177,7 +163,7 @@ type CheckLenses<T, SA extends StoreApi<State>> = {
     : T[P];
 };
 
-type WithLensesImpl = <T extends State>(
+type WithLensesImpl = <T>(
   f: StateCreator<T, [], []> | T
 ) => StateCreator<T, [], []>;
 
@@ -188,7 +174,7 @@ const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
 };
 
 type WithLenses = <
-  T extends State,
+  T,
   Mps extends [StoreMutatorIdentifier, unknown][] = [],
   Mcs extends [StoreMutatorIdentifier, unknown][] = [],
   U extends T = T
@@ -202,7 +188,7 @@ export const withLenses = withLensesImpl as unknown as WithLenses;
 
 // helpers
 
-export type CustomSetter<F, T extends State, S extends State> = [
+export type CustomSetter<F, T, S> = [
   set: F,
   get: Getter<T>,
   api: ResolveStoreApi<S>,
@@ -212,7 +198,7 @@ export type CustomSetter<F, T extends State, S extends State> = [
 export const customSetter = (setter) => (fn) => (set, get, api, path) =>
   fn(setter(set), get, api, path);
 
-export type NamedSet<T extends State> = (
+export type NamedSet<T> = (
   partial: Partial<T> | ((state: T) => Partial<T> | void),
   name?: string,
   replace?: boolean
@@ -220,6 +206,6 @@ export type NamedSet<T extends State> = (
 
 export const namedSetter = customSetter(
   (set) => (partial, name, replace) => set(partial, replace, name)
-) as <T extends State, S extends State = any>(
+) as <T, S = any>(
   fn: (...args: CustomSetter<NamedSet<T>, T, S>) => T
 ) => Lens<T, S>;
