@@ -98,8 +98,8 @@ export type ResolveStoreApi<X> = IsAny<X> extends true
   : unknown;
 
 class LensTypeInfo<T, S> {
-  private __lensType?: T;
-  private __lensStoreApi?: (lensStoreApi: S) => void;
+  protected __lensType?: T;
+  protected __lensStoreApi?: (lensStoreApi: S) => void;
 }
 
 type LensOpaqueType<T, S> = T & LensTypeInfo<T, ResolveStoreApi<S>>;
@@ -176,12 +176,11 @@ const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
 type WithLenses = <
   T,
   Mps extends [StoreMutatorIdentifier, unknown][] = [],
-  Mcs extends [StoreMutatorIdentifier, unknown][] = [],
-  U extends T = T
+  Mcs extends [StoreMutatorIdentifier, unknown][] = []
 >(
   f:
-    | CheckLenses<U, Mutate<StoreApi<T>, Mps>>
-    | StateCreator<T, Mps, Mcs, CheckLenses<U, Mutate<StoreApi<T>, Mps>>>
+    | CheckLenses<T, Mutate<StoreApi<T>, Mps>>
+    | StateCreator<T, Mps, Mcs, CheckLenses<T, Mutate<StoreApi<T>, Mps>>>
 ) => StateCreator<T, Mps, Mcs>;
 
 export const withLenses = withLensesImpl as unknown as WithLenses;

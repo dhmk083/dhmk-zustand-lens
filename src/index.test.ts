@@ -274,6 +274,55 @@ describe("withLenses", () => {
     expect(store.getState()[symbol]).toEqual(true);
     expect(store.getState().test[symbol]).toEqual(true);
   });
+
+  it("checks lenses api types", () => {
+    const one = lens<{ id: number }>(() => ({
+      id: 1,
+    }));
+
+    type TwoStoreState = { one: { name: string } };
+
+    const two = lens<{ id: number }, TwoStoreState>(() => ({
+      id: 1,
+    }));
+
+    interface State {
+      one: { id: number };
+      two: { id: number };
+    }
+
+    const store = create<State>()(
+      withLenses({
+        one,
+        // @ts-expect-error
+        two,
+      })
+    );
+
+    const store2 = create<State>()(
+      // @ts-expect-error
+      withLenses(() => ({
+        one,
+        two,
+      }))
+    );
+
+    const store3 = create(
+      withLenses({
+        one,
+        // @ts-expect-error
+        two,
+      })
+    );
+
+    const store4 = create(
+      // @ts-expect-error
+      withLenses(() => ({
+        one,
+        two,
+      }))
+    );
+  });
 });
 
 it("namedSetter", () => {
