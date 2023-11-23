@@ -188,6 +188,16 @@ describe("lens", () => {
     interface Store {
       sub: {
         name: string;
+        test();
+
+        nested: {
+          even: {
+            deeper: {
+              name: string;
+              test();
+            };
+          };
+        };
       };
     }
 
@@ -199,14 +209,41 @@ describe("lens", () => {
           expect(api).toBe(storeApi);
           expect(path).toEqual(["sub"]);
 
-          api.getState();
+          return {
+            name: "",
+            test() {
+              set({ name: "ok-1" });
+            },
 
-          return { name: "" };
+            nested: {
+              even: {
+                deeper: lens((set, get, api, path) => {
+                  expect(set).toEqual(expect.any(Function));
+                  expect(get).toEqual(expect.any(Function));
+                  expect(api).toBe(storeApi);
+                  expect(path).toEqual(["sub", "nested", "even", "deeper"]);
+
+                  return {
+                    name: "",
+                    test() {
+                      set({ name: "ok-2" });
+                    },
+                  };
+                }),
+              },
+            },
+          };
         }),
       }))
     );
 
-    expect.assertions(4);
+    store.getState().sub.test();
+    expect(store.getState().sub.name).toBe("ok-1");
+
+    store.getState().sub.nested.even.deeper.test();
+    expect(store.getState().sub.nested.even.deeper.name).toBe("ok-2");
+
+    expect.assertions(10);
   });
 
   it("doesn`t throw an error if created outside `withLenses` function", () => {
