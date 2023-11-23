@@ -174,7 +174,7 @@ const findLensAndCreate = (x, set, get, api, path = [] as string[]) => {
         v = v(set, get, api, path.concat(k));
       }
 
-      res[k] = findLensAndCreate(v, set, get, path.concat(k));
+      res[k] = findLensAndCreate(v, set, get, api, path.concat(k));
     });
   }
 
