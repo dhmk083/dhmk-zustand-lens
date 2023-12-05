@@ -1,7 +1,7 @@
 import { createStore as create } from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";
-import { isDraft } from "immer";
-import { createLens, lens, withLenses, namedSetter } from "./";
+import { isDraft, produce } from "immer";
+import { createLens, lens, withLenses, namedSetter, postprocess } from "./";
 
 describe("createLens", () => {
   it("returns a scoped set/get pair", () => {
@@ -122,6 +122,37 @@ describe("createLens", () => {
       "arg4",
       "arg5"
     );
+  });
+
+  it("applies `postprocess` function", () => {
+    let store = {
+      subA: {
+        id: 123,
+        value: "abc",
+        [postprocess]: (state, prevState, ...args) => {
+          expect(args).toEqual(["arg1", "arg2", "arg3"]);
+
+          return {
+            value: prevState.value + state.value,
+          };
+        },
+      },
+    };
+
+    const set = (partial) => {
+      store = Object.assign({}, store, partial(store));
+    };
+    const get = () => store;
+
+    const [aSet, aGet] = createLens(set, get, "subA");
+    aSet({ value: "def" }, false, "arg1", "arg2", "arg3");
+    expect(aGet()).toMatchObject({ id: 123, value: "abcdef" });
+
+    const immerSet = (partial) => set((state) => produce(state, partial));
+
+    const [iSet, iGet] = createLens(immerSet, get, "subA");
+    iSet({ value: "ghi" }, false, "arg1", "arg2", "arg3");
+    expect(iGet()).toMatchObject({ id: 123, value: "abcdefghi" });
   });
 });
 
@@ -359,6 +390,33 @@ describe("withLenses", () => {
         two,
       }))
     );
+  });
+
+  it("applies `postprocess` function", () => {
+    type Test = {
+      value: number;
+      test();
+    };
+
+    const sub = lens<Test>((set) => ({
+      value: 1,
+      test() {
+        set({ value: 2 });
+      },
+    }));
+
+    const store = create(
+      withLenses({
+        sub,
+        [postprocess]: (state, prevState) => {
+          expect(state.sub.value).toBe(2);
+          expect(prevState.sub.value).toBe(1);
+        },
+      })
+    );
+
+    store.getState().sub.test();
+    expect.assertions(2);
   });
 });
 

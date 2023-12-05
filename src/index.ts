@@ -15,6 +15,8 @@ import {
 
 export { mergeDeep } from "@dhmk/utils";
 
+export const postprocess = Symbol("postprocess");
+
 export type Setter<T> = (
   partial: Partial<T> | ((state: T) => Partial<T> | void),
   replace?: boolean | undefined,
@@ -23,56 +25,81 @@ export type Setter<T> = (
 
 export type Getter<T> = () => T;
 
-type SetState<T> = StoreApi<T>["setState"];
+type CreateLensSetter<T> = (
+  partial: (s: T) => Partial<T>,
+  replace?: boolean,
+  ...args
+) => any;
 
 export function createLens<T, P extends string[]>(
-  set: SetState<T>,
+  set: CreateLensSetter<T>,
   get: Getter<T>,
-  path: [...P]
+  path: readonly [...P]
 ): [Setter<PropType<T, P>>, Getter<PropType<T, P>>];
 export function createLens<T, P extends string>(
-  set: SetState<T>,
+  set: CreateLensSetter<T>,
   get: Getter<T>,
   path: P
 ): [Setter<PropType<T, [P]>>, Getter<PropType<T, [P]>>];
-export function createLens<T, P extends string[]>(
-  set: Setter<T>,
-  get: Getter<T>,
-  path: [...P]
-): [Setter<PropType<T, P>>, Getter<PropType<T, P>>];
-export function createLens<T, P extends string>(
-  set: Setter<T>,
-  get: Getter<T>,
-  path: P
-): [Setter<PropType<T, [P]>>, Getter<PropType<T, [P]>>];
+// pathless overload to normalize setter's behavior
+// function createLens(set, get)
 export function createLens(set, get, path) {
-  const normPath = typeof path === "string" ? [path] : path;
+  const normPath =
+    path === undefined ? undefined : typeof path === "string" ? [path] : path;
 
   const _set = (partial, replace, ...args) =>
     set(
       (parentValue) => {
-        const ourOldValue: any = getIn(parentValue, normPath);
+        const ourOldValue: any = normPath
+          ? getIn(parentValue, normPath)
+          : parentValue;
         const ourTmpValue =
           typeof partial === "function" ? partial(ourOldValue) : partial;
         const isPlain = isPlainObject(ourOldValue);
-        const ourNextValue =
+
+        // immer detection
+        const ourOldValue2 = normPath ? getIn(get(), normPath) : get();
+        const isDraft = isPlain && ourOldValue !== ourOldValue2;
+
+        if (isDraft) {
+          const draft = ourOldValue;
+          if (ourTmpValue) Object.assign(draft, ourTmpValue);
+          const pp = draft[postprocess]?.(draft, ourOldValue2, ...args);
+          if (pp) Object.assign(draft, pp);
+          return;
+        }
+
+        const ourTmpValue2 =
           replace || !isPlain
             ? ourTmpValue
             : { ...ourOldValue, ...ourTmpValue };
 
+        const ourNextValue = isPlain
+          ? {
+              ...ourTmpValue2,
+              ...ourTmpValue2[postprocess]?.(
+                ourTmpValue2,
+                ourOldValue,
+                ...args
+              ),
+            }
+          : ourTmpValue2;
+
         const isSame = isPlain
           ? shallowEqual(ourOldValue as any, ourNextValue)
-          : ourOldValue === ourNextValue; // todo Object.is
+          : Object.is(ourOldValue, ourNextValue);
 
         return isSame
           ? parentValue
-          : setIn(parentValue, normPath, ourNextValue);
+          : normPath
+          ? setIn(parentValue, normPath, ourNextValue)
+          : ourNextValue;
       },
-      false,
+      normPath ? false : replace,
       ...args
     );
 
-  const _get = () => getIn(get(), normPath);
+  const _get = () => (normPath ? getIn(get(), normPath) : get());
 
   return [_set, _get] as any;
 }
@@ -104,12 +131,20 @@ class LensTypeInfo<T, S> {
 
 type LensOpaqueType<T, S> = T & LensTypeInfo<T, ResolveStoreApi<S>>;
 
+type LensMeta<T> = {
+  [postprocess]?: (
+    state: T,
+    prevState: T,
+    ...args: unknown[]
+  ) => Partial<T> | void;
+};
+
 export type Lens<T, S = unknown, Setter_ extends Setter<T> = Setter<T>> = (
   set: Setter_,
   get: Getter<T>,
   api: ResolveStoreApi<S>,
   path: ReadonlyArray<string>
-) => T;
+) => T & LensMeta<T>;
 
 export function lens<T, S = unknown, Setter_ extends Setter<T> = Setter<T>>(
   fn: Lens<T, S, Setter_>
@@ -168,9 +203,11 @@ type WithLensesImpl = <T>(
 ) => StateCreator<T, [], []>;
 
 const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
+  const [_set] = createLens(set, get, undefined as any); // use pathless overload
+
   // @ts-ignore
-  const obj = typeof config === "function" ? config(set, get, api) : config;
-  return findLensAndCreate(obj, set, get, api);
+  const obj = typeof config === "function" ? config(_set, get, api) : config;
+  return findLensAndCreate(obj, _set, get, api);
 };
 
 type WithLenses = <
@@ -179,8 +216,13 @@ type WithLenses = <
   Mcs extends [StoreMutatorIdentifier, unknown][] = []
 >(
   f:
-    | CheckLenses<T, Mutate<StoreApi<T>, Mps>>
-    | StateCreator<T, Mps, Mcs, CheckLenses<T, Mutate<StoreApi<T>, Mps>>>
+    | (CheckLenses<T, Mutate<StoreApi<T>, Mps>> & LensMeta<T>)
+    | StateCreator<
+        T & LensMeta<T>,
+        Mps,
+        Mcs,
+        CheckLenses<T, Mutate<StoreApi<T>, Mps>>
+      >
 ) => StateCreator<T, Mps, Mcs>;
 
 export const withLenses = withLensesImpl as unknown as WithLenses;
