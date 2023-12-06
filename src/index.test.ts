@@ -215,7 +215,7 @@ describe("immer", () => {
 });
 
 describe("lens", () => {
-  it("calls creator function with (set, get, api, path)", () => {
+  it("calls creator function with (set, get, api, context)", () => {
     interface Store {
       sub: {
         name: string;
@@ -234,11 +234,15 @@ describe("lens", () => {
 
     const store = create<Store>(
       withLenses((storeSet, storeGet, storeApi) => ({
-        sub: lens((set, get, api, path) => {
+        sub: lens((set, get, api, ctx) => {
           expect(set).toEqual(expect.any(Function));
           expect(get).toEqual(expect.any(Function));
           expect(api).toBe(storeApi);
-          expect(path).toEqual(["sub"]);
+          expect(ctx.rootPath).toEqual(["sub"]);
+          expect(ctx.relativePath).toEqual(["sub"]);
+          expect(ctx.set).toBe(set);
+          expect(ctx.get).toBe(get);
+          expect(ctx.api).toBe(api);
 
           return {
             name: "",
@@ -248,11 +252,24 @@ describe("lens", () => {
 
             nested: {
               even: {
-                deeper: lens((set, get, api, path) => {
+                deeper: lens((set, get, api, ctx) => {
                   expect(set).toEqual(expect.any(Function));
                   expect(get).toEqual(expect.any(Function));
                   expect(api).toBe(storeApi);
-                  expect(path).toEqual(["sub", "nested", "even", "deeper"]);
+                  expect(ctx.rootPath).toEqual([
+                    "sub",
+                    "nested",
+                    "even",
+                    "deeper",
+                  ]);
+                  expect(ctx.relativePath).toEqual([
+                    "nested",
+                    "even",
+                    "deeper",
+                  ]);
+                  expect(ctx.set).toBe(set);
+                  expect(ctx.get).toBe(get);
+                  expect(ctx.api).toBe(api);
 
                   return {
                     name: "",
@@ -273,8 +290,6 @@ describe("lens", () => {
 
     store.getState().sub.nested.even.deeper.test();
     expect(store.getState().sub.nested.even.deeper.name).toBe("ok-2");
-
-    expect.assertions(10);
   });
 
   it("doesn`t throw an error if created outside `withLenses` function", () => {

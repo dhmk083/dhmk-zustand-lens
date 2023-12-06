@@ -106,12 +106,7 @@ export function createLens(set, get, path) {
 
 const LENS_TAG = "@dhmk/LENS_TAG";
 
-const isLens = (x): x is LensCreator<any> => !!x && x[LENS_TAG];
-
-type LensCreator<T> = {
-  (set, get, api, path): T;
-  [LENS_TAG]: true;
-};
+const isLens = (x): x is Lens<any> => !!x && x[LENS_TAG];
 
 // https://stackoverflow.com/a/55541672
 type IsAny<T> = 0 extends 1 & T ? true : false;
@@ -139,25 +134,35 @@ type LensMeta<T> = {
   ) => Partial<T> | void;
 };
 
-export type Lens<T, S = unknown, Setter_ extends Setter<T> = Setter<T>> = (
+type Context<T, S> = {
+  set: Setter<T>;
+  get: Getter<T>;
+  api: ResolveStoreApi<S>;
+  rootPath: ReadonlyArray<string>;
+  relativePath: ReadonlyArray<string>;
+};
+
+export type Lens<T, S = unknown, Setter_ = Setter<T>, Ctx = Context<T, S>> = (
   set: Setter_,
   get: Getter<T>,
   api: ResolveStoreApi<S>,
-  path: ReadonlyArray<string>
+  ctx: Ctx
 ) => T & LensMeta<T>;
 
 export function lens<T, S = unknown, Setter_ extends Setter<T> = Setter<T>>(
   fn: Lens<T, S, Setter_>
 ): LensOpaqueType<T, S> {
-  const self = (set, get, api, path) => {
-    const [_set, _get]: any = createLens(set, get, path);
-    return fn(_set, _get, api, path);
+  const self = (set, get, api, ctx /* partial context */) => {
+    const [_set, _get]: any = createLens(set, get, ctx.relativePath);
+    ctx.set = _set;
+    ctx.get = _get;
+    return fn(_set, _get, api, ctx);
   };
   self[LENS_TAG] = true;
   return self as any;
 }
 
-const findLensAndCreate = (x, set, get, api, path = [] as string[]) => {
+const findLensAndCreate = (x, parentCtx: Context<any, any>) => {
   let res = x;
 
   if (isPlainObject(x)) {
@@ -177,11 +182,32 @@ const findLensAndCreate = (x, set, get, api, path = [] as string[]) => {
         return;
       }
 
+      let nextSet = parentCtx.set;
+      let nextGet = parentCtx.get;
+      let nextRelativePath = parentCtx.relativePath.concat(k);
+
       if (isLens(v)) {
-        v = v(set, get, api, path.concat(k));
+        // partial context
+        // `lens` will update it with `set` and `get`
+        const lensCtx = {
+          api: parentCtx.api,
+          rootPath: parentCtx.rootPath.concat(k),
+          relativePath: parentCtx.relativePath.concat(k),
+        } as unknown as Context<any, any>;
+
+        v = v(parentCtx.set, parentCtx.get, parentCtx.api, lensCtx);
+        nextSet = lensCtx.set;
+        nextGet = lensCtx.get;
+        nextRelativePath = [];
       }
 
-      res[k] = findLensAndCreate(v, set, get, api, path.concat(k));
+      res[k] = findLensAndCreate(v, {
+        set: nextSet,
+        get: nextGet,
+        api: parentCtx.api,
+        rootPath: parentCtx.rootPath.concat(k),
+        relativePath: nextRelativePath,
+      });
     });
   }
 
@@ -207,7 +233,13 @@ const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
 
   // @ts-ignore
   const obj = typeof config === "function" ? config(_set, get, api) : config;
-  return findLensAndCreate(obj, _set, get, api);
+  return findLensAndCreate(obj, {
+    set: _set,
+    get,
+    api,
+    rootPath: [],
+    relativePath: [],
+  });
 };
 
 type WithLenses = <
@@ -233,11 +265,11 @@ export type CustomSetter<F, T, S> = [
   set: F,
   get: Getter<T>,
   api: ResolveStoreApi<S>,
-  path: ReadonlyArray<string>
+  ctx: Context<T, S>
 ];
 
-export const customSetter = (setter) => (fn) => (set, get, api, path) =>
-  fn(setter(set), get, api, path);
+export const customSetter = (setter) => (fn) => (set, get, api, ctx) =>
+  fn(setter(set), get, api, ctx);
 
 export type NamedSet<T> = (
   partial: Partial<T> | ((state: T) => Partial<T> | void),
