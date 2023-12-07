@@ -16,6 +16,7 @@ import {
 export { mergeDeep } from "@dhmk/utils";
 
 export const postprocess = Symbol("postprocess");
+export const setter = Symbol("setter");
 
 export type Setter<T> = (
   partial: Partial<T> | ((state: T) => Partial<T> | void),
@@ -126,12 +127,14 @@ class LensTypeInfo<T, S> {
 
 type LensOpaqueType<T, S> = T & LensTypeInfo<T, ResolveStoreApi<S>>;
 
-type LensMeta<T> = {
+type LensMeta<T, S> = {
   [postprocess]?: (
     state: T,
     prevState: T,
     ...args: unknown[]
   ) => Partial<T> | void;
+
+  [setter]?: (set: () => void, ctx: Context<T, S>) => void;
 };
 
 type Context<T, S> = {
@@ -147,7 +150,7 @@ export type Lens<T, S = unknown, Setter_ = Setter<T>, Ctx = Context<T, S>> = (
   get: Getter<T>,
   api: ResolveStoreApi<S>,
   ctx: Ctx
-) => T & LensMeta<T>;
+) => T & LensMeta<T, S>;
 
 export function lens<T, S = unknown, Setter_ extends Setter<T> = Setter<T>>(
   fn: Lens<T, S, Setter_>
@@ -195,7 +198,13 @@ const findLensAndCreate = (x, parentCtx: Context<any, any>) => {
           relativePath: parentCtx.relativePath.concat(k),
         } as unknown as Context<any, any>;
 
-        v = v(parentCtx.set, parentCtx.get, parentCtx.api, lensCtx);
+        let setterFn: any = (x) => x();
+
+        const set = (...args) =>
+          setterFn(() => (parentCtx.set as any)(...args), lensCtx);
+
+        v = v(set, parentCtx.get, parentCtx.api, lensCtx);
+        if (v[setter]) setterFn = v[setter];
         nextSet = lensCtx.set;
         nextGet = lensCtx.get;
         nextRelativePath = [];
@@ -229,17 +238,25 @@ type WithLensesImpl = <T>(
 ) => StateCreator<T, [], []>;
 
 const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
-  const [_set] = createLens(set, get, undefined as any); // use pathless overload
+  let setterFn: any = (x) => x();
 
-  // @ts-ignore
-  const obj = typeof config === "function" ? config(_set, get, api) : config;
-  return findLensAndCreate(obj, {
+  const setFn = (...args) => setterFn(() => (set as any)(...args), ctx);
+
+  const [_set] = createLens(setFn, get, undefined as any); // use pathless overload
+
+  const ctx = {
     set: _set,
     get,
     api,
     rootPath: [],
     relativePath: [],
-  });
+  };
+
+  // @ts-ignore
+  const obj = typeof config === "function" ? config(_set, get, api) : config;
+  const res = findLensAndCreate(obj, ctx);
+  if (res[setter]) setterFn = res[setter];
+  return res;
 };
 
 type WithLenses = <
@@ -248,9 +265,9 @@ type WithLenses = <
   Mcs extends [StoreMutatorIdentifier, unknown][] = []
 >(
   f:
-    | (CheckLenses<T, Mutate<StoreApi<T>, Mps>> & LensMeta<T>)
+    | (CheckLenses<T, Mutate<StoreApi<T>, Mps>> & LensMeta<T, unknown>)
     | StateCreator<
-        T & LensMeta<T>,
+        T & LensMeta<T, unknown>,
         Mps,
         Mcs,
         CheckLenses<T, Mutate<StoreApi<T>, Mps>>

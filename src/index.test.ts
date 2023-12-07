@@ -1,7 +1,14 @@
 import { createStore as create } from "zustand/vanilla";
 import { immer } from "zustand/middleware/immer";
 import { isDraft, produce } from "immer";
-import { createLens, lens, withLenses, namedSetter, postprocess } from "./";
+import {
+  createLens,
+  lens,
+  withLenses,
+  namedSetter,
+  postprocess,
+  setter,
+} from "./";
 
 describe("createLens", () => {
   it("returns a scoped set/get pair", () => {
@@ -432,6 +439,39 @@ describe("withLenses", () => {
 
     store.getState().sub.test();
     expect.assertions(2);
+  });
+
+  it("uses `setter` function", () => {
+    const cb = jest.fn();
+
+    const store = create(
+      withLenses({
+        nested: lens<any>(() => ({
+          deep: {
+            slice: lens<any>((set) => ({
+              id: 123,
+              test() {
+                set({ id: 456 });
+              },
+              [setter]: (set, ctx) => {
+                cb(1);
+                set();
+              },
+            })),
+          },
+        })),
+        [setter]: (set, ctx) => {
+          cb(2);
+          set();
+        },
+      })
+    );
+
+    store.getState().nested.deep.slice.test();
+
+    expect(cb).toBeCalledTimes(2);
+    expect(cb).nthCalledWith(1, 1);
+    expect(cb).nthCalledWith(2, 2);
   });
 });
 
