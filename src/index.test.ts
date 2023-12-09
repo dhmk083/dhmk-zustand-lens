@@ -8,6 +8,7 @@ import {
   namedSetter,
   postprocess,
   setter,
+  atomic,
 } from "./";
 
 describe("createLens", () => {
@@ -494,4 +495,105 @@ it("namedSetter", () => {
 
   state.setName();
   expect(spy).toBeCalledWith({ name: "def" }, undefined, "setName");
+});
+
+describe("atomic", () => {
+  it("makes `setter`s atomic", () => {
+    // no atomic
+    const store1 = create<any>()(
+      withLenses((set, get) => ({
+        sub: lens((set) => ({
+          id: 123,
+          test() {
+            set({ id: 456 });
+          },
+        })),
+        flag: false,
+        test() {
+          set({ flag: true });
+        },
+        [setter]: (set) => {
+          set();
+
+          if (!get().flag) get().test();
+        },
+      }))
+    );
+
+    const cb1 = jest.fn();
+    store1.subscribe(cb1);
+
+    store1.getState().sub.test();
+    expect(cb1).toBeCalledTimes(2);
+
+    // atomic
+    const store2 = create<any>()(
+      atomic(
+        withLenses((set, get) => ({
+          sub: lens((set) => ({
+            id: 123,
+            test() {
+              set({ id: 456 });
+            },
+          })),
+          flag: false,
+          test() {
+            set({ flag: true });
+          },
+          [setter]: (set) => {
+            set();
+
+            if (!get().flag) get().test();
+          },
+        }))
+      )
+    );
+
+    const cb2 = jest.fn();
+    store2.subscribe(cb2);
+
+    store2.getState().sub.test();
+    expect(cb2).toBeCalledTimes(1);
+  });
+
+  it("enables context`s `atomic` function", () => {
+    const store = create(
+      atomic(
+        withLenses({
+          sub: lens<any>((set, get, _api, ctx) => ({
+            id: 123,
+            name: "abc",
+            nested: lens<any>((set) => ({
+              id: 123,
+              setId(id) {
+                set({ id });
+              },
+            })),
+
+            test() {
+              ctx.atomic(() => {
+                set({ id: 456 });
+                get().nested.setId(get().id);
+                set({ name: "def" });
+              });
+            },
+          })),
+        })
+      )
+    );
+
+    const cb = jest.fn();
+    store.subscribe(cb);
+
+    store.getState().sub.test();
+
+    expect(cb).toBeCalledTimes(1);
+    expect(store.getState().sub).toMatchObject({
+      id: 456,
+      name: "def",
+      nested: {
+        id: 456,
+      },
+    });
+  });
 });

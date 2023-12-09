@@ -13,10 +13,13 @@ import {
   PropType,
 } from "@dhmk/utils";
 
+import { createStore } from "zustand/vanilla";
+
 export { mergeDeep } from "@dhmk/utils";
 
 export const postprocess = Symbol("postprocess");
 export const setter = Symbol("setter");
+const storeContext = Symbol("storeContext");
 
 export type Setter<T> = (
   partial: Partial<T> | ((state: T) => Partial<T> | void),
@@ -143,6 +146,7 @@ type Context<T, S> = {
   api: ResolveStoreApi<S>;
   rootPath: ReadonlyArray<string>;
   relativePath: ReadonlyArray<string>;
+  atomic: (fn: () => void) => void;
 };
 
 export type Lens<T, S = unknown, Setter_ = Setter<T>, Ctx = Context<T, S>> = (
@@ -192,16 +196,24 @@ const findLensAndCreate = (x, parentCtx: Context<any, any>) => {
       if (isLens(v)) {
         // partial context
         // `lens` will update it with `set` and `get`
-        const lensCtx = {
+        const lensCtx: Context<any, any> = {
+          set: undefined as any, // will be set by `lens` function
+          get: undefined as any, // see `set`
           api: parentCtx.api,
           rootPath: parentCtx.rootPath.concat(k),
           relativePath: parentCtx.relativePath.concat(k),
-        } as unknown as Context<any, any>;
+          atomic:
+            parentCtx.atomic === atomicStub
+              ? atomicStubWithWarning
+              : parentCtx.atomic,
+        };
 
         let setterFn: any = (x) => x();
 
         const set = (...args) =>
-          setterFn(() => (parentCtx.set as any)(...args), lensCtx);
+          parentCtx.atomic(() =>
+            setterFn(() => (parentCtx.set as any)(...args), lensCtx)
+          );
 
         v = v(set, parentCtx.get, parentCtx.api, lensCtx);
         if (v[setter]) setterFn = v[setter];
@@ -216,6 +228,7 @@ const findLensAndCreate = (x, parentCtx: Context<any, any>) => {
         api: parentCtx.api,
         rootPath: parentCtx.rootPath.concat(k),
         relativePath: nextRelativePath,
+        atomic: parentCtx.atomic,
       });
     });
   }
@@ -238,9 +251,12 @@ type WithLensesImpl = <T>(
 ) => StateCreator<T, [], []>;
 
 const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
+  const atomic = api[storeContext]?.atomic ?? atomicStub;
+
   let setterFn: any = (x) => x();
 
-  const setFn = (...args) => setterFn(() => (set as any)(...args), ctx);
+  const setFn = (...args) =>
+    atomic(() => setterFn(() => (set as any)(...args), ctx));
 
   const [_set] = createLens(setFn, get, undefined as any); // use pathless overload
 
@@ -250,6 +266,7 @@ const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
     api,
     rootPath: [],
     relativePath: [],
+    atomic,
   };
 
   // @ts-ignore
@@ -275,6 +292,62 @@ type WithLenses = <
 ) => StateCreator<T, Mps, Mcs>;
 
 export const withLenses = withLensesImpl as unknown as WithLenses;
+
+// atomic
+
+const atomicStub = (fn) => fn();
+
+const atomicStubWithWarning = (fn) => {
+  console.warn("You must include `atomic` middleware.");
+  return atomicStub(fn);
+};
+
+type AtomicImpl = <T>(f: StateCreator<T, [], []>) => StateCreator<T, [], []>;
+
+const atomicImpl: AtomicImpl = (config) => (set, get, api) => {
+  const tempStore = createStore(get);
+  let counter = 0;
+
+  const atomic = (fn) => {
+    if (++counter === 1) {
+      tempStore.setState(get());
+    }
+
+    try {
+      fn();
+    } finally {
+      if (--counter === 0) {
+        set(tempStore.getState());
+      }
+    }
+  };
+
+  const _set = (...args) => {
+    atomic(() => (tempStore.setState as any)(...args));
+  };
+
+  const _get = () => (counter ? tempStore.getState() : get());
+
+  return config(_set, _get, {
+    ...api,
+    setState: _set,
+    getState: _get,
+    // @ts-ignore
+    [storeContext]: {
+      atomic,
+    },
+  });
+};
+
+type Atomic = <
+  T,
+  Mps extends [StoreMutatorIdentifier, unknown][] = [],
+  Mcs extends [StoreMutatorIdentifier, unknown][] = []
+>(
+  f: StateCreator<T, Mps, Mcs>
+) => StateCreator<T, Mps, Mcs>;
+
+export const atomic = atomicImpl as Atomic;
 
 // helpers
 
