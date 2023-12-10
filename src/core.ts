@@ -19,8 +19,14 @@ export const postprocess = Symbol("postprocess");
 export const setter = Symbol("setter");
 const storeContext = Symbol("storeContext");
 
+export type SetParameter<T> =
+  | Partial<T>
+  | ((state: T) => Partial<T> | void)
+  // for immer and similar
+  | ((state: T) => T);
+
 export type Setter<T> = (
-  partial: Partial<T> | ((state: T) => Partial<T> | void),
+  partial: SetParameter<T>,
   replace?: boolean | undefined,
   ...args
 ) => void;

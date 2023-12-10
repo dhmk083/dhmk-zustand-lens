@@ -1,6 +1,6 @@
 import { PersistOptions } from "zustand/middleware";
 import { mergeDeep, objectMap, isPlainObject } from "@dhmk/utils";
-import { Getter, ResolveStoreApi, Context, Lens } from "./core";
+import { Getter, ResolveStoreApi, Context, Lens, SetParameter } from "./core";
 
 export { mergeDeep } from "@dhmk/utils";
 
@@ -17,7 +17,7 @@ export const customSetter = (setter) => (fn) => (set, get, api, ctx) =>
   fn(setter(set), get, api, ctx);
 
 export type NamedSet<T> = (
-  partial: Partial<T> | ((state: T) => Partial<T> | void),
+  partial: SetParameter<T>,
   name?: string,
   replace?: boolean
 ) => void;
