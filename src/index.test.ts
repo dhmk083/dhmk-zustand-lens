@@ -1,4 +1,5 @@
 import { createStore as create } from "zustand/vanilla";
+import { persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { isDraft, produce } from "immer";
 import {
@@ -11,6 +12,7 @@ import {
   atomic,
   subscribe,
   watch,
+  persistOptions,
 } from "./";
 
 describe("createLens", () => {
@@ -697,4 +699,81 @@ it("watch", () => {
 
   store.getState().sub.test();
   expect(cb2).toBeCalledTimes(1);
+});
+
+it("persistOptions", () => {
+  let _storage;
+
+  const store = create<any>()(
+    persist(
+      (set) => ({
+        subA: {
+          id: 1,
+          ...persistOptions({
+            load: (x: any) => ({
+              ...x,
+              id: x.id * 10,
+            }),
+          }),
+        },
+        subB: {
+          name: "a",
+          ...persistOptions({
+            save: (x: any) => ({
+              ...x,
+              name: x.name.repeat(2),
+            }),
+          }),
+        },
+        test() {
+          set(
+            produce((s) => {
+              s.subA.id = 2;
+              s.subB.name = "b";
+            })
+          );
+        },
+      }),
+      {
+        name: "test",
+        storage: {
+          getItem: () => _storage,
+          setItem: (_, v: any) => (_storage = v),
+          removeItem() {},
+        },
+        ...persistOptions,
+      }
+    )
+  );
+
+  expect(store.getState()).toMatchObject({
+    subA: {
+      id: 10,
+    },
+    subB: {
+      name: "a",
+    },
+  });
+
+  store.getState().test();
+
+  expect(store.getState()).toMatchObject({
+    subA: {
+      id: 2,
+    },
+    subB: {
+      name: "b",
+    },
+  });
+
+  store.persist.rehydrate();
+
+  expect(store.getState()).toMatchObject({
+    subA: {
+      id: 20,
+    },
+    subB: {
+      name: "bb",
+    },
+  });
 });

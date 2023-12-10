@@ -1,4 +1,5 @@
-import { mergeDeep } from "@dhmk/utils";
+import { PersistOptions } from "zustand/middleware";
+import { mergeDeep, objectMap, isPlainObject } from "@dhmk/utils";
 import { Getter, ResolveStoreApi, Context, Lens } from "./core";
 
 export { mergeDeep } from "@dhmk/utils";
@@ -79,3 +80,38 @@ export function watch<T = any, U = any, S = any>(
     }
   };
 }
+
+const persist = Symbol("persist");
+
+export function persistOptions<T>(conf: {
+  load?: (x: unknown) => T;
+  save?: (x: T) => unknown;
+}) {
+  return {
+    [persist]: conf,
+  };
+}
+
+function walk(x, fn) {
+  return isPlainObject(x) ? objectMap(fn(x), (v) => walk(v, fn)) : x;
+}
+
+const zustandPersistOptions: Pick<
+  PersistOptions<unknown>,
+  "merge" | "partialize"
+> = {
+  merge(persistedState: any = {}, currentState) {
+    return walk(
+      mergeDeep(currentState, persistedState),
+      (x) => x[persist]?.load?.(x) ?? x
+    );
+  },
+
+  partialize(state) {
+    return walk(state, (x) => x[persist]?.save?.(x) ?? x);
+  },
+};
+
+// for typescript
+persistOptions.merge = zustandPersistOptions.merge;
+persistOptions.partialize = zustandPersistOptions.partialize;
