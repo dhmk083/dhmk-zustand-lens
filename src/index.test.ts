@@ -9,6 +9,7 @@ import {
   postprocess,
   setter,
   atomic,
+  subscribe,
 } from "./";
 
 describe("createLens", () => {
@@ -596,4 +597,65 @@ describe("atomic", () => {
       },
     });
   });
+});
+
+it("subscribe", () => {
+  interface State {
+    id: number;
+    name: string;
+
+    test1();
+    test2();
+    test3();
+  }
+
+  const store = create<State>((set) => ({
+    id: 123,
+    name: "abc",
+
+    test1() {
+      set({
+        id: 456,
+        name: "def",
+      });
+    },
+
+    test2() {
+      set({
+        id: 456, // same value
+        name: "abcdef",
+      });
+    },
+
+    test3() {
+      set({
+        id: 789,
+      });
+    },
+  }));
+
+  const cb1 = jest.fn();
+  const cb2 = jest.fn();
+
+  const unsub = subscribe(store, (s) => s.id, cb1, { fireImmediately: true });
+  subscribe(store, (s) => s.name, cb2, {
+    equalityFn: (a, b) => a.length === b.length,
+  });
+
+  expect(cb1).toBeCalledTimes(1);
+  expect(cb2).toBeCalledTimes(0);
+
+  store.getState().test1();
+  expect(cb1).lastCalledWith(456, 123);
+  expect(cb2).toBeCalledTimes(0);
+
+  store.getState().test2();
+  expect(cb1).toBeCalledTimes(2);
+  expect(cb2).lastCalledWith("abcdef", "abc");
+
+  unsub();
+
+  store.getState().test3();
+  expect(cb1).toBeCalledTimes(2);
+  expect(cb2).toBeCalledTimes(1);
 });

@@ -26,3 +26,27 @@ export const namedSetter = customSetter(
 ) as <T, S = any>(
   fn: (...args: CustomSetter<NamedSet<T>, T, S>) => T
 ) => Lens<T, S>;
+
+export function subscribe<S, T>(
+  store: { subscribe: (fn: (s: S) => any) => any; getState(): S },
+  selector: (state: S) => T,
+  effect: (state: T, prevState: T) => void,
+  options: {
+    equalityFn?: (a: T, b: T) => boolean;
+    fireImmediately?: boolean;
+  } = {}
+) {
+  const { equalityFn = Object.is, fireImmediately = false } = options;
+
+  let curr = selector(store.getState());
+
+  if (fireImmediately) effect(curr, curr);
+
+  return store.subscribe((state) => {
+    const next = selector(state);
+    if (!equalityFn(next, curr)) {
+      const prev = curr;
+      effect((curr = next), prev);
+    }
+  });
+}
