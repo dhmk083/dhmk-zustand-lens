@@ -1,4 +1,9 @@
+import { mergeDeep } from "@dhmk/utils";
 import { Getter, ResolveStoreApi, Context, Lens } from "./core";
+
+export { mergeDeep } from "@dhmk/utils";
+
+export const mergeDeepLeft = <T>(a: unknown, b: T): T => mergeDeep(b, a as any);
 
 export type CustomSetter<F, T, S> = [
   set: F,

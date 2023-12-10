@@ -15,8 +15,6 @@ import {
 
 import { createStore } from "zustand/vanilla";
 
-export { mergeDeep } from "@dhmk/utils";
-
 export const postprocess = Symbol("postprocess");
 export const setter = Symbol("setter");
 const storeContext = Symbol("storeContext");
