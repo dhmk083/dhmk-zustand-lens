@@ -10,6 +10,7 @@ import {
   setter,
   atomic,
   subscribe,
+  watch,
 } from "./";
 
 describe("createLens", () => {
@@ -657,5 +658,43 @@ it("subscribe", () => {
 
   store.getState().test3();
   expect(cb1).toBeCalledTimes(2);
+  expect(cb2).toBeCalledTimes(1);
+});
+
+it("watch", () => {
+  const cb1 = jest.fn();
+  const cb2 = jest.fn();
+
+  const store = create(
+    withLenses({
+      sub: lens<any>((set) => ({
+        id: 123,
+        test() {
+          set({ id: 456 });
+        },
+        nested: lens<any>((set) => ({
+          name: "abc",
+          test() {
+            set({ name: "def" });
+          },
+          [setter]: watch((s) => s, cb1, { fireImmediately: true }),
+        })),
+        [setter]: watch((s) => s.id, cb2),
+      })),
+    })
+  );
+
+  expect(cb1).toBeCalledTimes(1);
+  expect(cb2).toBeCalledTimes(0);
+
+  store.getState().sub.nested.test();
+
+  expect(cb1).toBeCalledTimes(2);
+  expect(cb2).toBeCalledTimes(0);
+
+  store.getState().sub.test();
+  expect(cb2).toBeCalledTimes(1);
+
+  store.getState().sub.test();
   expect(cb2).toBeCalledTimes(1);
 });

@@ -50,3 +50,32 @@ export function subscribe<S, T>(
     }
   });
 }
+
+export function watch<T = any, U = any, S = any>(
+  selector: (state: T) => U,
+  effect: (state: U, prevState: U) => void,
+  options: {
+    equalityFn?: (a: T, b: T) => boolean;
+    fireImmediately?: boolean;
+  } = {}
+) {
+  const { equalityFn = Object.is, fireImmediately = false } = options;
+
+  let curr;
+
+  if (fireImmediately)
+    effect(undefined as unknown as U, undefined as unknown as U);
+
+  return function (set: () => void, ctx: Context<T, S>) {
+    if (!curr) curr = selector(ctx.get());
+
+    set();
+
+    const next = selector(ctx.get());
+
+    if (!equalityFn(next, curr)) {
+      const prev = curr;
+      effect((curr = next), prev);
+    }
+  };
+}
