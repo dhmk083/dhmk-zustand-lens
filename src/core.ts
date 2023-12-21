@@ -15,9 +15,8 @@ import {
 
 import { createStore } from "zustand/vanilla";
 
-export const postprocess = Symbol("postprocess");
-export const setter = Symbol("setter");
-const storeContext = Symbol("storeContext");
+export const meta = Symbol("lens meta");
+const storeContext = Symbol("store context");
 
 export type SetParameter<T> =
   | Partial<T>
@@ -72,7 +71,7 @@ export function createLens(set, get, path) {
         if (isDraft) {
           const draft = ourOldValue;
           if (ourTmpValue) Object.assign(draft, ourTmpValue);
-          const pp = draft[postprocess]?.(draft, ourOldValue2, ...args);
+          const pp = draft[meta]?.postprocess?.(draft, ourOldValue2, ...args);
           if (pp) Object.assign(draft, pp);
           return;
         }
@@ -85,7 +84,7 @@ export function createLens(set, get, path) {
         const ourNextValue = isPlain
           ? {
               ...ourTmpValue2,
-              ...ourTmpValue2[postprocess]?.(
+              ...ourTmpValue2[meta]?.postprocess?.(
                 ourTmpValue2,
                 ourOldValue,
                 ...args
@@ -134,14 +133,20 @@ class LensTypeInfo<T, S> {
 
 type LensOpaqueType<T, S> = T & LensTypeInfo<T, ResolveStoreApi<S>>;
 
-type LensMeta<T, S> = {
-  [postprocess]?: (
+export type LensMetaProps<T, S> = {
+  postprocess?: (
     state: T,
     prevState: T,
     ...args: unknown[]
   ) => Partial<T> | void;
 
-  [setter]?: (set: () => void, ctx: Context<T, S>) => void;
+  setter?: (set: () => void, ctx: Context<T, S>) => void;
+};
+
+export type LensMeta<T, S> = {
+  [p: string | number | symbol]: unknown;
+
+  [meta]?: LensMetaProps<T, S>;
 };
 
 export type Context<T, S> = {
@@ -160,8 +165,8 @@ export type Lens<T, S = unknown, Setter_ = Setter<T>, Ctx = Context<T, S>> = (
   ctx: Ctx
 ) => T & LensMeta<T, S>;
 
-export function lens<T, S = unknown, Setter_ extends Setter<T> = Setter<T>>(
-  fn: Lens<T, S, Setter_>
+export function lens<T, S = unknown>(
+  fn: Lens<T, S, Setter<T>>
 ): LensOpaqueType<T, S> {
   const self = (set, get, api, ctx /* partial context */) => {
     const [_set, _get]: any = createLens(set, get, ctx.relativePath);
@@ -220,7 +225,7 @@ const findLensAndCreate = (x, parentCtx: Context<any, any>) => {
           );
 
         v = v(set, parentCtx.get, parentCtx.api, lensCtx);
-        if (v[setter]) setterFn = v[setter];
+        if (v[meta]?.setter) setterFn = v[meta].setter;
         nextSet = lensCtx.set;
         nextGet = lensCtx.get;
         nextRelativePath = [];
@@ -245,6 +250,8 @@ type CheckLenses<T, SA extends StoreApi<unknown>> = {
     ? SA extends LSA
       ? LensOpaqueType<L, LSA>
       : LensOpaqueType<L, SA>
+    : T[P] extends Function
+    ? T[P]
     : T[P] extends object
     ? CheckLenses<T[P], SA>
     : T[P];
@@ -276,7 +283,7 @@ const withLensesImpl: WithLensesImpl = (config) => (set, get, api) => {
   // @ts-ignore
   const obj = typeof config === "function" ? config(_set, get, api) : config;
   const res = findLensAndCreate(obj, ctx);
-  if (res[setter]) setterFn = res[setter];
+  if (res[meta]?.setter) setterFn = res[meta].setter;
   return res;
 };
 
@@ -286,12 +293,12 @@ type WithLenses = <
   Mcs extends [StoreMutatorIdentifier, unknown][] = []
 >(
   f:
-    | (CheckLenses<T, Mutate<StoreApi<T>, Mps>> & LensMeta<T, unknown>)
+    | CheckLenses<T & LensMeta<T, unknown>, Mutate<StoreApi<T>, Mps>>
     | StateCreator<
-        T & LensMeta<T, unknown>,
+        T,
         Mps,
         Mcs,
-        CheckLenses<T, Mutate<StoreApi<T>, Mps>>
+        CheckLenses<T & LensMeta<T, unknown>, Mutate<StoreApi<T>, Mps>>
       >
 ) => StateCreator<T, Mps, Mcs>;
 

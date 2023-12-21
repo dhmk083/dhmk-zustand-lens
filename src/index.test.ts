@@ -7,12 +7,11 @@ import {
   lens,
   withLenses,
   namedSetter,
-  postprocess,
-  setter,
   atomic,
   subscribe,
   watch,
   persistOptions,
+  meta,
 } from "./";
 
 describe("createLens", () => {
@@ -141,12 +140,14 @@ describe("createLens", () => {
       subA: {
         id: 123,
         value: "abc",
-        [postprocess]: (state, prevState, ...args) => {
-          expect(args).toEqual(["arg1", "arg2", "arg3"]);
+        [meta]: {
+          postprocess: (state, prevState, ...args) => {
+            expect(args).toEqual(["arg1", "arg2", "arg3"]);
 
-          return {
-            value: prevState.value + state.value,
-          };
+            return {
+              value: prevState.value + state.value,
+            };
+          },
         },
       },
     };
@@ -435,9 +436,11 @@ describe("withLenses", () => {
     const store = create(
       withLenses({
         sub,
-        [postprocess]: (state, prevState) => {
-          expect(state.sub.value).toBe(2);
-          expect(prevState.sub.value).toBe(1);
+        [meta]: {
+          postprocess: (state, prevState) => {
+            expect(state.sub.value).toBe(2);
+            expect(prevState.sub.value).toBe(1);
+          },
         },
       })
     );
@@ -458,16 +461,20 @@ describe("withLenses", () => {
               test() {
                 set({ id: 456 });
               },
-              [setter]: (set, ctx) => {
-                cb(1);
-                set();
+              [meta]: {
+                setter: (set, ctx) => {
+                  cb(1);
+                  set();
+                },
               },
             })),
           },
         })),
-        [setter]: (set, ctx) => {
-          cb(2);
-          set();
+        [meta]: {
+          setter: (set, ctx) => {
+            cb(2);
+            set();
+          },
         },
       })
     );
@@ -516,10 +523,12 @@ describe("atomic", () => {
         test() {
           set({ flag: true });
         },
-        [setter]: (set) => {
-          set();
+        [meta]: {
+          setter: (set) => {
+            set();
 
-          if (!get().flag) get().test();
+            if (!get().flag) get().test();
+          },
         },
       }))
     );
@@ -544,10 +553,12 @@ describe("atomic", () => {
           test() {
             set({ flag: true });
           },
-          [setter]: (set) => {
-            set();
+          [meta]: {
+            setter: (set) => {
+              set();
 
-            if (!get().flag) get().test();
+              if (!get().flag) get().test();
+            },
           },
         }))
       )
@@ -679,9 +690,9 @@ it("watch", () => {
           test() {
             set({ name: "def" });
           },
-          [setter]: watch((s) => s, cb1, { fireImmediately: true }),
+          [meta]: { setter: watch((s) => s, cb1, { fireImmediately: true }) },
         })),
-        [setter]: watch((s) => s.id, cb2),
+        [meta]: { setter: watch((s) => s.id, cb2) },
       })),
     })
   );
@@ -775,5 +786,82 @@ it("persistOptions", () => {
     subB: {
       name: "bb",
     },
+  });
+});
+
+describe("lens meta type tests", () => {
+  it("with explicitly typed store", () => {
+    interface Nested {
+      text: string;
+      isOk: boolean;
+
+      toggle();
+    }
+
+    interface Store {
+      id: number;
+      name: string;
+
+      nested: Nested;
+    }
+
+    // need to explicitly add [meta] to avoid error
+    create<Store & { [meta] }>()(
+      withLenses({
+        id: 123,
+        name: "test",
+
+        nested: lens((set) => ({
+          text: "test",
+          isOk: true,
+
+          toggle() {
+            set({
+              isOk: true,
+            });
+          },
+
+          [meta]: {
+            postprocess(state, prevState, ...args) {},
+            setter(set, ctx) {},
+          },
+        })),
+
+        [meta]: {
+          postprocess: (state) => {},
+          setter: (set, ctx) => {},
+        },
+      })
+    );
+  });
+
+  it("with implicitly typed store", () => {
+    create(
+      withLenses({
+        id: 123,
+        name: "test",
+
+        nested: lens<{ text: string; isOk: boolean }>((set) => ({
+          text: "test",
+          isOk: true,
+
+          toggle() {
+            set({
+              isOk: true,
+            });
+          },
+
+          [meta]: {
+            postprocess(state, prevState, ...args) {},
+            setter(set, ctx) {},
+          },
+        })),
+
+        [meta]: {
+          postprocess: (state) => {},
+          setter: (set, ctx) => {},
+        },
+      })
+    );
   });
 });
