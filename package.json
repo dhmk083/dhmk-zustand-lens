@@ -1,6 +1,6 @@
 {
   "name": "@dhmk/zustand-lens",
-  "version": "3.0.4",
+  "version": "4.0.0-beta",
   "description": "Lens support for zustand",
   "keywords": [
     "zustand",
