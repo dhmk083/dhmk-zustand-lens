@@ -1,6 +1,12 @@
 import { PersistOptions } from "zustand/middleware";
 import { mergeDeep, objectMap, isPlainObject } from "@dhmk/utils";
-import { Getter, ResolveStoreApi, Context, Lens, SetParameter } from "./core";
+import {
+  Getter,
+  ResolveStoreApi,
+  LensContext,
+  Lens,
+  SetParameter,
+} from "./core";
 
 export { mergeDeep } from "@dhmk/utils";
 
@@ -10,7 +16,7 @@ export type CustomSetter<F, T, S> = [
   set: F,
   get: Getter<T>,
   api: ResolveStoreApi<S>,
-  ctx: Context<T, S>
+  ctx: LensContext<T, S>
 ];
 
 export const customSetter = (setter) => (fn) => (set, get, api, ctx) =>
@@ -67,7 +73,7 @@ export function watch<T = any, U = any, S = any>(
   if (fireImmediately)
     effect(undefined as unknown as U, undefined as unknown as U);
 
-  return function (set: () => void, ctx: Context<T, S>) {
+  return function (set: () => void, ctx: LensContext<T, S>) {
     if (!curr) curr = selector(ctx.get());
 
     set();

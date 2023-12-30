@@ -131,7 +131,7 @@ class LensTypeInfo<T, S> {
   protected __lensStoreApi?: (lensStoreApi: S) => void;
 }
 
-type LensOpaqueType<T, S> = T & LensTypeInfo<T, ResolveStoreApi<S>>;
+export type LensOpaqueType<T, S> = T & LensTypeInfo<T, ResolveStoreApi<S>>;
 
 export type LensMetaProps<T, S> = {
   postprocess?: (
@@ -140,7 +140,7 @@ export type LensMetaProps<T, S> = {
     ...args: unknown[]
   ) => Partial<T> | void;
 
-  setter?: (set: () => void, ctx: Context<T, S>) => void;
+  setter?: (set: () => void, ctx: LensContext<T, S>) => void;
 };
 
 export type LensMeta<T, S> = {
@@ -149,7 +149,7 @@ export type LensMeta<T, S> = {
   [meta]?: LensMetaProps<T, S>;
 };
 
-export type Context<T, S> = {
+export type LensContext<T, S> = {
   set: Setter<T>;
   get: Getter<T>;
   api: ResolveStoreApi<S>;
@@ -158,8 +158,13 @@ export type Context<T, S> = {
   atomic: (fn: () => void) => void;
 };
 
-export type Lens<T, S = unknown, Setter_ = Setter<T>, Ctx = Context<T, S>> = (
-  set: Setter_,
+export type Lens<
+  T,
+  S = unknown,
+  SetterFn = Setter<T>,
+  Ctx = LensContext<T, S>
+> = (
+  set: SetterFn,
   get: Getter<T>,
   api: ResolveStoreApi<S>,
   ctx: Ctx
@@ -178,7 +183,7 @@ export function lens<T, S = unknown>(
   return self as any;
 }
 
-const findLensAndCreate = (x, parentCtx: Context<any, any>) => {
+const findLensAndCreate = (x, parentCtx: LensContext<any, any>) => {
   let res = x;
 
   if (isPlainObject(x)) {
@@ -205,7 +210,7 @@ const findLensAndCreate = (x, parentCtx: Context<any, any>) => {
       if (isLens(v)) {
         // partial context
         // `lens` will update it with `set` and `get`
-        const lensCtx: Context<any, any> = {
+        const lensCtx: LensContext<any, any> = {
           set: undefined as any, // will be set by `lens` function
           get: undefined as any, // see `set`
           api: parentCtx.api,
