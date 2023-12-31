@@ -738,7 +738,7 @@ it("persistOptions", () => {
         },
         test() {
           set(
-            produce((s) => {
+            produce((s: any) => {
               s.subA.id = 2;
               s.subB.name = "b";
             })

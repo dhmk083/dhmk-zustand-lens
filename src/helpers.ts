@@ -103,7 +103,7 @@ function walk(x, fn) {
 }
 
 const zustandPersistOptions: Pick<
-  PersistOptions<unknown>,
+  PersistOptions<any>,
   "merge" | "partialize"
 > = {
   merge(persistedState: any = {}, currentState) {
