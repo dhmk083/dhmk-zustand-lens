@@ -140,7 +140,7 @@ export type LensMetaProps<T, S> = {
     ...args: unknown[]
   ) => Partial<T> | void;
 
-  setter?: (set: () => void, ctx: LensContext<unknown, unknown>) => void;
+  setter?: (set: () => void, ctx: LensContext<T, S>) => void;
 };
 
 export type LensMeta<T, S> = {
@@ -150,7 +150,7 @@ export type LensMeta<T, S> = {
 };
 
 export type LensContext<T, S> = {
-  set: Setter<T>;
+  set: Setter<unknown>; // Setter<T> may cause error
   get: Getter<T>;
   api: ResolveStoreApi<S>;
   rootPath: ReadonlyArray<string>;
