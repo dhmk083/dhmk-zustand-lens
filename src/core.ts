@@ -140,7 +140,7 @@ export type LensMetaProps<T, S> = {
     ...args: unknown[]
   ) => Partial<T> | void;
 
-  setter?: (set: () => void, ctx: LensContext<T, S>) => void;
+  setter?: (set: () => void, ctx: LensContext<unknown, unknown>) => void;
 };
 
 export type LensMeta<T, S> = {
