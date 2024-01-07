@@ -34,12 +34,12 @@ export const namedSetter = customSetter(
   fn: (...args: CustomSetter<NamedSet<T>, T, S>) => T
 ) => Lens<T, S>;
 
-export function subscribe<S, T>(
-  store: { subscribe: (fn: (s: S) => any) => any; getState(): S },
-  selector: (state: S) => T,
-  effect: (state: T, prevState: T) => void,
+export function subscribe<T, U>(
+  store: { subscribe: (fn: (s: T) => any) => any; getState(): T },
+  selector: (state: T) => U,
+  effect: (state: U, prevState: U) => void,
   options: {
-    equalityFn?: (a: T, b: T) => boolean;
+    equalityFn?: (a: U, b: U) => boolean;
     fireImmediately?: boolean;
   } = {}
 ) {
@@ -62,7 +62,7 @@ export function watch<T = any, U = any, S = any>(
   selector: (state: T) => U,
   effect: (state: U, prevState: U) => void,
   options: {
-    equalityFn?: (a: T, b: T) => boolean;
+    equalityFn?: (a: U, b: U) => boolean;
     fireImmediately?: boolean;
   } = {}
 ) {
