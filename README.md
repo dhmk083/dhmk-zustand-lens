@@ -460,3 +460,16 @@ Alternative to [`subscribeWithSelector`](https://github.com/pmndrs/zustand#using
 ### `watch(selector, effect, options?)`
 
 Similar to `subscribe` function, meant to be used in `setter` hook. It calls lens' `set` function first and then runs `effect` function if needed. Doesn't require to unsubscribe.
+
+### `combineWatchers(...watchers)`
+
+Runs watchers (or any setter-like functions) sequentially. Useful if you have multiple watchers. Example:
+
+```ts
+[meta]: {
+  setter: combineWatchers(
+    watch(state => state.id, handleIdChange),
+    watch(state => state.name, handleNameChange)
+  )
+}
+```

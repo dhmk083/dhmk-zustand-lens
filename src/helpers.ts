@@ -3,6 +3,7 @@ import { mergeDeep, objectMap, isPlainObject } from "@dhmk/utils";
 import {
   Getter,
   ResolveStoreApi,
+  LensMetaProps,
   LensContext,
   Lens,
   SetParameter,
@@ -58,6 +59,8 @@ export function subscribe<T, U>(
   });
 }
 
+type MetaSetter<T, S> = Exclude<LensMetaProps<T, S>["setter"], undefined>;
+
 export function watch<T = any, U = any, S = any>(
   selector: (state: T) => U,
   effect: (state: U, prevState: U) => void,
@@ -65,7 +68,7 @@ export function watch<T = any, U = any, S = any>(
     equalityFn?: (a: U, b: U) => boolean;
     fireImmediately?: boolean;
   } = {}
-) {
+): MetaSetter<T, S> {
   const { equalityFn = Object.is, fireImmediately = false } = options;
 
   let curr;
@@ -73,7 +76,7 @@ export function watch<T = any, U = any, S = any>(
   if (fireImmediately)
     effect(undefined as unknown as U, undefined as unknown as U);
 
-  return function (set: () => void, ctx: LensContext<T, S>) {
+  return function (set, ctx) {
     if (!curr) curr = selector(ctx.get());
 
     set();
@@ -84,6 +87,25 @@ export function watch<T = any, U = any, S = any>(
       const prev = curr;
       effect((curr = next), prev);
     }
+  };
+}
+
+export function combineWatchers<T, S>(
+  ...fns: MetaSetter<T, S>[]
+): MetaSetter<T, S> {
+  let initialized;
+
+  const runWatchers = (ctx) => fns.forEach((fn) => fn(() => {}, ctx));
+
+  return (set, ctx) => {
+    if (!initialized) {
+      initialized = true;
+      runWatchers(ctx);
+    }
+
+    set();
+
+    runWatchers(ctx);
   };
 }
 

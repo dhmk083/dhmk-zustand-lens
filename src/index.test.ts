@@ -12,6 +12,7 @@ import {
   watch,
   persistOptions,
   meta,
+  combineWatchers,
 } from "./";
 
 describe("createLens", () => {
@@ -710,6 +711,40 @@ it("watch", () => {
 
   store.getState().sub.test();
   expect(cb2).toBeCalledTimes(1);
+});
+
+it("combineWatchers", () => {
+  const cbId = jest.fn();
+  const cbName = jest.fn();
+
+  const store = create<any>()(
+    withLenses((set) => ({
+      id: 1,
+      setId(x) {
+        set({ id: x });
+      },
+      name: "a",
+      setName(x) {
+        set({ name: x });
+      },
+      [meta]: {
+        setter: combineWatchers(
+          watch((s) => s.id, cbId),
+          watch((s) => s.name, cbName)
+        ),
+      },
+    }))
+  );
+
+  store.getState().setId(2);
+  store.getState().setId(3);
+  store.getState().setId(3);
+  expect(cbId).toBeCalledTimes(2);
+
+  store.getState().setName("a");
+  store.getState().setName("b");
+  store.getState().setName("c");
+  expect(cbName).toBeCalledTimes(2);
 });
 
 it("persistOptions", () => {
