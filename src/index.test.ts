@@ -865,3 +865,26 @@ describe("lens meta type tests", () => {
     );
   });
 });
+
+it("immer@10 bug", () => {
+  const store = create(
+    immer(
+      withLenses({
+        sub: lens<any>((set) => ({
+          id: 1,
+          test() {
+            set((s) => ({ id: s.id + 1 }));
+          },
+          [meta]: {
+            postprocess: (state) => {},
+          },
+        })),
+      })
+    )
+  );
+
+  store.getState().sub.test(); // 1st call - ok
+  store.getState().sub.test(); // 2nd call - error
+
+  expect(store.getState().sub.id).toBe(3);
+});

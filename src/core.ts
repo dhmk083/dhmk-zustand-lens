@@ -71,7 +71,12 @@ export function createLens(set, get, path) {
         if (isDraft) {
           const draft = ourOldValue;
           if (ourTmpValue) Object.assign(draft, ourTmpValue);
-          const pp = draft[meta]?.postprocess?.(draft, ourOldValue2, ...args);
+          // not a `draft[meta]` because of immer@10 bug (https://github.com/immerjs/immer/issues/1087)
+          const pp = /*draft*/ ourOldValue2[meta]?.postprocess?.(
+            draft,
+            ourOldValue2,
+            ...args
+          );
           if (pp) Object.assign(draft, pp);
           return;
         }
