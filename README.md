@@ -10,17 +10,19 @@ A quick comparison:
 
 ```ts
 import create from "zustand";
-import { lens } from "@dhmk/zustand-lens";
+import { withLenses, lens } from "@dhmk/zustand-lens";
 
-create((set, get) => {
-  // write and read whole state
+create(
+  withLenses((set, get) => {
+    // write and read whole state
 
-  return {
-    subStore: lens((subSet, subGet) => {
-      // write and read `subStore` state
-    }),
-  };
-});
+    return {
+      subStore: lens((subSet, subGet) => {
+        // write and read `subStore` state
+      }),
+    };
+  })
+);
 ```
 
 ## Install
