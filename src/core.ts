@@ -32,11 +32,19 @@ export type Setter<T> = (
 
 export type Getter<T> = () => T;
 
-type CreateLensSetter<T> = (
-  partial: (s: T) => Partial<T>,
-  replace?: boolean,
+type CreateLensPartialSetter<T> = (
+  partial: T | Partial<T> | ((s: T) => T | Partial<T>),
+  replace?: false,
   ...args
 ) => any;
+
+type CreateLensStateSetter<T> = (
+  state: T | ((state: T) => T),
+  replace: true,
+  ...args
+) => any;
+
+type CreateLensSetter<T> = CreateLensPartialSetter<T> | CreateLensStateSetter<T>
 
 export function createLens<T, P extends string[]>(
   set: CreateLensSetter<T>,
